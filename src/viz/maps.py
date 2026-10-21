@@ -109,8 +109,8 @@ def plot_static_map(
     ax_head.set_yticks([])
     ax_head.text(
         0.5, 0.58,
-        "SISTEMA ESTADUAL DE UNIDADES DE CONSERVACAO DO PARA (IDEFLOR-BIO)",
-        fontsize=14.5, fontweight="bold", color="#000000", ha="center", va="center"
+        "UNIDADES DE CONSERVAÇÃO ESTADUAIS",
+        fontsize=15.0, fontweight="bold", color="#000000", ha="center", va="center"
     )
     ax_head.text(
         0.5, 0.22,
@@ -481,8 +481,8 @@ def create_interactive_maplibre_map(
 
   <!-- Painel Lateral de Filtros e Analise -->
   <div class="control-panel">
-    <div class="panel-title">Painel de Analise Espacial</div>
-    <div class="panel-sub">Filtros dinamicos das UCs do IDEFLOR-Bio</div>
+    <div class="panel-title">UNIDADES DE CONSERVAÇÃO ESTADUAIS</div>
+    <div class="panel-sub">Painel Analítico de Incêndios (1985 a 2023) | IDEFLOR-Bio</div>
 
     <div class="filter-group">
       <label class="filter-label" for="select-gerencia">Gerencia Regional:</label>
