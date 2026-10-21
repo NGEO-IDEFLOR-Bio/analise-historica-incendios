@@ -462,14 +462,14 @@ def create_interactive_leaflet_dashboard(
       <select id="select-gerencia" class="filter-select">
         <option value="TODAS">Todas as 9 Gerências</option>
         <option value="GRB">Belém (GRB)</option>
-        <option value="GRCN">Calha Norte (GRCN)</option>
+        <option value="GRCN-I">Calha Norte I (GRCN-I)</option>
+        <option value="GRCN-II">Calha Norte II (GRCN-II)</option>
+        <option value="GRCN-III">Calha Norte III (GRCN-III)</option>
         <option value="GRM">Marajó (GRM)</option>
         <option value="GRNE">Nordeste Paraense (GRNE)</option>
         <option value="GRA">Araguaia (GRA)</option>
+        <option value="GRTUC">Tucuruí (GRTUC)</option>
         <option value="GRX">Xingu (GRX)</option>
-        <option value="GRT">Tapajós (GRT)</option>
-        <option value="GRLT">Lago de Tucuruí (GRLT)</option>
-        <option value="GRBVT">Baixo Amazonas (GRBVT)</option>
       </select>
     </div>
 

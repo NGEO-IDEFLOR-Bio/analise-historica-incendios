@@ -63,6 +63,7 @@ def _draw_north_arrow(ax, x: float, y: float, size: float = 0.75):
 
 def plot_static_map(
     df_series: pd.DataFrame,
+    ano: Optional[int] = None,
     figsize: Tuple[int, int] = (16, 11),
     save_path: Optional[Path] = None
 ) -> Tuple[plt.Figure, Any]:
@@ -86,12 +87,26 @@ def plot_static_map(
     gdf_ufs = gpd.read_file(ufs_path)
     gdf_sa = gpd.read_file(sa_path)
 
-    uc_stats = df_series.groupby("uc_id").agg(
-        taxa_media_pct=("taxa_queimada_pct", "mean"),
-        taxa_max_pct=("taxa_queimada_pct", "max"),
-        burned_ha_total=("burned_ha", "sum")
-    ).reset_index()
+    if ano is not None:
+        df_sub = df_series[df_series["ano"] == ano].copy()
+        uc_stats = df_sub[["uc_id", "taxa_queimada_pct", "burned_ha"]].rename(
+            columns={"taxa_queimada_pct": "taxa_media_pct", "burned_ha": "burned_ha_total"}
+        )
+        subtitle = f"Distribuição Geográfica e Taxa Anual de Cicatrizes de Queimada - Ano {ano}"
+        legenda_taxa = f"Taxa de Queima no Ano {ano} (% da UC):"
+        tempo_info = f"Ano de Referência Analisado: {ano}"
+    else:
+        uc_stats = df_series.groupby("uc_id").agg(
+            taxa_media_pct=("taxa_queimada_pct", "mean"),
+            taxa_max_pct=("taxa_queimada_pct", "max"),
+            burned_ha_total=("burned_ha", "sum")
+        ).reset_index()
+        subtitle = "Distribuição Geográfica e Taxa Média Histórica de Cicatrizes de Queimada (1985 a 2023)"
+        legenda_taxa = "Taxa Média de Queima (% da UC / ano):"
+        tempo_info = "Série Temporal Analisada: 1985 a 2023 (39 anos)"
+
     gdf_ucs = gdf_ucs.merge(uc_stats, left_on="id", right_on="uc_id", how="left")
+    gdf_ucs["taxa_media_pct"] = gdf_ucs["taxa_media_pct"].fillna(0.0)
 
     fig = plt.figure(figsize=figsize, facecolor="#FFFFFF")
 
@@ -127,7 +142,7 @@ def plot_static_map(
     )
     ax_head.text(
         0.5, 0.25,
-        "Distribuição Geográfica e Taxa Média Histórica de Cicatrizes de Queimada (1985 a 2023)",
+        subtitle,
         fontsize=9.8, color="#334155", ha="center", va="center"
     )
 
@@ -283,7 +298,7 @@ def plot_static_map(
     ax_side.text(0.18, y_leg, "Limite Estadual do Pará", fontsize=8.5, va="center", color="#000000")
 
     y_leg -= 0.065
-    ax_side.text(0.06, y_leg, "Taxa Média de Queima (% da UC / ano):", fontsize=8.8, fontweight="bold", color="#0F172A", va="center")
+    ax_side.text(0.06, y_leg, legenda_taxa, fontsize=8.8, fontweight="bold", color="#0F172A", va="center")
 
     for cl in classes_cores:
         y_leg -= 0.060
@@ -298,7 +313,7 @@ def plot_static_map(
     info_text = (
         "Base Territorial: 29 UCs Estaduais Oficiais\n"
         "Fonte do Regime de Fogo: MapBiomas Fogo (Coleção 3 - 30m)\n"
-        "Série Temporal Analisada: 1985 a 2023 (39 anos)\n"
+        f"{tempo_info}\n"
         "Sistema Geodésico: SIRGAS 2000 | Projeção Geográfica\n"
         "Data de Elaboração: Outubro de 2026"
     )

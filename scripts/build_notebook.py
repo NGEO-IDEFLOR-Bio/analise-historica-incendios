@@ -233,6 +233,19 @@ fig, ax = plot_static_map(df_series, figsize=(16, 11))
 plt.show()
 """))
 
+    cells.append(make_cell("markdown", """### Prancha Cartográfica Temática por Ano Específico
+
+Geração de prancha cartográfica estática oficial parametrizada por ano (1985 a 2023), permitindo analisar a severidade espacial das cicatrizes em qualquer ano selecionado.
+"""))
+
+    cells.append(make_cell("code", """# Mapeamento do ano mais recente da série consolidada (2023)
+fig_ano, ax_ano = plot_static_map(df_series, ano=2023, figsize=(16, 11))
+plt.show()
+
+# Para alternar interativamente entre os anos no próprio notebook, utilize o controle deslizante:
+# widgets.interact(lambda ano: plot_static_map(df_series, ano=ano, figsize=(16, 11)), ano=widgets.IntSlider(min=1985, max=2023, step=1, value=2023, description="Ano:"))
+"""))
+
     cells.append(make_cell("markdown", """### Mini Dashboard Analítico Interativo (MapLibre GL JS)
 
 Painel analítico vetorial interativo desenvolvido com MapLibre GL JS e estilização cartográfica escura moderna (*glassmorphism*), sem dependência de chaves de API. Disponibiliza filtros dinâmicos por Gerência Regional e Grupo SNUC com recálculo automático em tempo real de indicadores consolidados (área protegida filtrada, taxa média do grupo e contagem de UCs), além de módulo lateral deslizante de inspeção detalhada com gráficos da série histórica (1985–2023) e avaliação do marco legal de criação ao clicar em qualquer Unidade de Conservação.
