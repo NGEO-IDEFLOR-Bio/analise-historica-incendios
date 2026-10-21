@@ -96,7 +96,7 @@ from IPython.display import display
 from src.config import CSV_METADATA_UCS, GEOJSON_UCS, DATA_PROCESSED
 from src.viz.theme import apply_ggplot_theme, COLOR_FIRE_MAIN, COLOR_FIRE_LIGHT, COLOR_PRE_CREATION, COLOR_POST_CREATION
 from src.viz.charts import plot_panorama_estadual, plot_comparativo_gerencias, plot_uc_before_after
-from src.viz.maps import plot_static_map, create_interactive_folium_map, display_maplibre_in_notebook
+from src.viz.maps import plot_static_map, create_interactive_maplibre_map, display_maplibre_in_notebook
 
 apply_ggplot_theme()
 print("Modulos carregados e padronizacao grafica ativada.")
@@ -233,14 +233,13 @@ fig, ax = plot_static_map(df_series, figsize=(16, 11))
 plt.show()
 """))
 
-    cells.append(make_cell("markdown", """### Mapa Interativo de Navegação Espacial (Leaflet / Folium)
+    cells.append(make_cell("markdown", """### Mini Dashboard Analítico Interativo (MapLibre GL JS)
 
-Mapa vetorial interativo com navegação fluida, sem restrição ou cobrança de chaves de API. Oferece controle por camadas temáticas individuais para cada Gerência Regional, alternância entre três bases cartográficas (Esri Canvas Claro, Satélite de Alta Resolução Esri Imagery e OpenStreetMap), escala cromática de queima histórica e tooltips cadastrais completas ao passar o cursor sobre as Unidades de Conservação.
+Painel analítico vetorial interativo desenvolvido com MapLibre GL JS e estilização cartográfica escura moderna (*glassmorphism*), sem dependência de chaves de API. Disponibiliza filtros dinâmicos por Gerência Regional e Grupo SNUC com recálculo automático em tempo real de indicadores consolidados (área protegida filtrada, taxa média do grupo e contagem de UCs), além de módulo lateral deslizante de inspeção detalhada com gráficos da série histórica (1985–2023) e avaliação do marco legal de criação ao clicar em qualquer Unidade de Conservação.
 """))
 
-    cells.append(make_cell("code", """# Geração e exibição do mapa interativo Folium diretamente na célula
-mapa_interativo = create_interactive_folium_map(df_series, save_html=True)
-display(mapa_interativo)
+    cells.append(make_cell("code", """# Geração e exibição do Mini Dashboard interativo MapLibre GL JS diretamente na célula
+display(display_maplibre_in_notebook(df_series, height=720))
 """))
 
     # 11. SINTESE CONCLUSIVA
