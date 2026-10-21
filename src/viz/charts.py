@@ -182,7 +182,7 @@ def plot_uc_before_after(df: pd.DataFrame, uc_id: int, figsize=(12, 6)):
 def plot_matriz_intensidade_unidades(
     df: pd.DataFrame,
     gerencia_filtro: Optional[str] = None,
-    figsize=(18, 11)
+    figsize: Optional[tuple] = None
 ):
     """
     Matriz de Intensidade Temporal por Unidade de Conservacao (agrupadas por Gerencia Regional).
@@ -206,6 +206,14 @@ def plot_matriz_intensidade_unidades(
         aggfunc="first"
     ).reindex(ordem_ucs).fillna(0.0)
     
+    num_ucs = len(pivot_ucs)
+    if figsize is None:
+        if gerencia_filtro and gerencia_filtro != "TODAS":
+            calc_height = max(2.6, num_ucs * 0.72 + 1.2)
+            figsize = (15, calc_height)
+        else:
+            figsize = (18, 11)
+            
     fig, ax = plt.subplots(figsize=figsize)
     sns.heatmap(
         pivot_ucs,
@@ -218,11 +226,14 @@ def plot_matriz_intensidade_unidades(
     
     titulo = "Matriz de Intensidade Temporal por Unidade de Conservacao (1985 a 2026)"
     if gerencia_filtro and gerencia_filtro != "TODAS":
-        titulo += f" - {gerencia_filtro}"
+        titulo = f"Intensidade Temporal de Queimadas - {gerencia_filtro}"
+        y_label = "Unidade"
+    else:
+        y_label = "Unidade de Conservação"
         
-    ax.set_title(titulo, fontsize=13, fontweight="bold", pad=12)
+    ax.set_title(titulo, fontsize=12.5, fontweight="bold", pad=12)
     ax.set_xlabel("Ano", fontsize=10, fontweight="bold")
-    ax.set_ylabel("Unidade de Conservacao (agrupada por Gerencia)", fontsize=10, fontweight="bold")
+    ax.set_ylabel(y_label, fontsize=10, fontweight="bold")
     ax.set_xticklabels(ax.get_xticklabels(), rotation=45, fontsize=8.5)
     ax.set_yticklabels(ax.get_yticklabels(), fontsize=8.5)
     

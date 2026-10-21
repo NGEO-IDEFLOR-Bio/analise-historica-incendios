@@ -1,14 +1,16 @@
 """
-Modulo de geracao do Mini Dashboard Cartografico e Analitico Completo (Leaflet 2D + Chart.js):
-- 100% compativel com Google Colab, JupyterLab, VS Code e navegadores locais
-- Grafico 1: Serie Temporal Anual da UC selecionada (com barras coloridas antes e depois do decreto de criacao)
-- Grafico 2: Painel de Contexto Geral no painel de filtros (Grafico Dinamico de Evolucao Anual das UCs filtradas)
-- Grafico 3: Grafico de Ranking Horizontal das Top 5 UCs com maior pressao de fogo
-- Filtros em tempo real por Gerencia Regional e Grupo SNUC
-- Recalculo instantaneo de indicadores (Area Total, Taxa Media Ponderada, Contagem de UCs)
-- Tooltips ricas no cursor e zoom automatico na UC selecionada
+Modulo gerador do Mini Dashboard Analitico Interativo em Leaflet + Chart.js.
+Padronizacao institucional IDEFLOR-Bio:
+- Painel analitico unificado com alternador de abas (Visao Regional vs Analise por Unidade)
+- Zero conflito cognitivo entre filtros regionais e inspecao individual
+- Zoom e enquadramento sincronizados dinamicamente a cada selecao
+- Visualizacao grafica dual em Chart.js:
+  * Visao Regional: Linha historica ponderada do grupo/gerencia filtrada
+  * Analise por Unidade: Grafico temporal com marco legal do decreto (pre vs pos-criacao)
+- Cartografia base profissional e gratuita: Esri Canvas Claro e Satelite
+- 100% compativel com navegadores locais, VS Code e Google Colab (sem chave de API)
 """
-from typing import Optional, Dict, Any
+from typing import Optional
 from pathlib import Path
 import json
 import pandas as pd
@@ -22,40 +24,49 @@ from src.config import (
     DATA_OUTPUT
 )
 
+def strip_z(coords):
+    """Remove a dimensao Z (elevacao) de coordenadas para garantir compatibilidade GeoJSON 2D padrao."""
+    if isinstance(coords[0], (int, float)):
+        return coords[:2]
+    return [strip_z(c) for c in coords]
+
 def create_interactive_leaflet_dashboard(
     df_series: pd.DataFrame,
     save_html: bool = True,
     output_path: Optional[Path] = None
 ) -> str:
-    """Gera o codigo HTML completo do Mini Dashboard analitico interativo."""
-    df_meta = pd.read_csv(CSV_METADATA_UCS)
     gdf_ucs = gpd.read_file(GEOJSON_UCS)
     gdf_para = gpd.read_file(GEOJSON_PARA)
+    df_meta = pd.read_csv(CSV_METADATA_UCS) if CSV_METADATA_UCS.exists() else pd.DataFrame()
+
+    for col in gdf_ucs.columns:
+        if pd.api.types.is_datetime64_any_dtype(gdf_ucs[col]):
+            gdf_ucs[col] = gdf_ucs[col].astype(str)
 
     gdf_ucs_simp = gdf_ucs.copy()
-    gdf_ucs_simp["geometry"] = gdf_ucs_simp["geometry"].simplify(0.003, preserve_topology=True)
+    gdf_ucs_simp["geometry"] = gdf_ucs_simp.geometry.simplify(0.002, preserve_topology=True)
     gdf_para_simp = gdf_para.copy()
-    gdf_para_simp["geometry"] = gdf_para_simp["geometry"].simplify(0.008, preserve_topology=True)
+    gdf_para_simp["geometry"] = gdf_para_simp.geometry.simplify(0.005, preserve_topology=True)
 
     stats = df_series.groupby("uc_id").agg(
         taxa_media=("taxa_queimada_pct", "mean"),
         burned_ha_total=("burned_ha", "sum")
-    ).reset_index().set_index("uc_id").to_dict("index")
+    ).to_dict("index")
 
     def get_cor(taxa: float) -> str:
-        if taxa <= 0.50: return "#FFFFB2"
-        if taxa <= 2.00: return "#FECC5C"
-        if taxa <= 4.00: return "#FD8D3C"
-        if taxa <= 7.00: return "#F03B20"
-        return "#BD0026"
-
-    def strip_z(coords):
-        if isinstance(coords[0], (int, float)):
-            return [round(coords[0], 5), round(coords[1], 5)]
-        return [strip_z(c) for c in coords]
+        if taxa < 0.5:
+            return "#FFFFB2"
+        elif taxa < 2.0:
+            return "#FECC5C"
+        elif taxa < 4.0:
+            return "#FD8D3C"
+        elif taxa < 7.0:
+            return "#F03B20"
+        else:
+            return "#BD0026"
 
     ucs_features = []
-    for idx, row in gdf_ucs_simp.iterrows():
+    for _, row in gdf_ucs_simp.iterrows():
         uid = int(row["id"])
         st = stats.get(uid, {"taxa_media": 0.0, "burned_ha_total": 0.0})
         meta_row = df_meta[df_meta["id"] == uid]
@@ -63,9 +74,11 @@ def create_interactive_leaflet_dashboard(
         cat = meta_row["categoria"].values[0] if not meta_row.empty else str(row.get("categoria", ""))
         grp = meta_row["grupo"].values[0] if not meta_row.empty else str(row.get("grupo", ""))
         ger = meta_row["gerencia"].values[0] if not meta_row.empty else str(row.get("gerencia", ""))
+        
         ger_sigla = ""
         if "(" in ger and ")" in ger:
             ger_sigla = ger.split("(")[-1].replace(")", "").strip()
+            
         criacao = int(meta_row["ano_criacao"].values[0]) if not meta_row.empty and not pd.isna(meta_row["ano_criacao"].values[0]) else None
         
         geom_2d = json.loads(json.dumps(mapping(row["geometry"])))
@@ -94,23 +107,25 @@ def create_interactive_leaflet_dashboard(
     geom_para_2d["coordinates"] = strip_z(geom_para_2d["coordinates"])
     para_geo = {
         "type": "FeatureCollection",
-        "features": [{"type": "Feature", "geometry": geom_para_2d, "properties": {"name": "Pará"}}]
+        "features": [{"type": "Feature", "geometry": geom_para_2d, "properties": {"name": "Para"}}]
     }
     ucs_geo = {"type": "FeatureCollection", "features": ucs_features}
 
-    # Series individuais por UC
+    # Estruturar series temporais para os graficos por UC
     series_by_uc = {}
-    for uid, group in df_series.groupby("uc_id"):
-        uid = int(uid)
+    for uid, grp in df_series.groupby("uc_id"):
+        grp_sorted = grp.sort_values("ano")
+        anos = [int(a) for a in grp_sorted["ano"].tolist()]
+        taxas = [round(float(t), 2) for t in grp_sorted["taxa_queimada_pct"].tolist()]
+        burned_ha = [round(float(b), 1) for b in grp_sorted["burned_ha"].tolist()]
+        
         meta_row = df_meta[df_meta["id"] == uid]
         ano_criacao = int(meta_row["ano_criacao"].values[0]) if not meta_row.empty and not pd.isna(meta_row["ano_criacao"].values[0]) else None
-        grp_sorted = group.sort_values("ano")
-        anos = [int(a) for a in grp_sorted["ano"].tolist()]
-        taxas = [round(float(v), 2) for v in grp_sorted["taxa_queimada_pct"].tolist()]
-        burned_ha = [round(float(v), 1) for v in grp_sorted["burned_ha"].tolist()]
-        pico_idx = grp_sorted["taxa_queimada_pct"].idxmax()
-        pico_ano = int(grp_sorted.loc[pico_idx, "ano"])
-        pico_taxa = round(float(grp_sorted.loc[pico_idx, "taxa_queimada_pct"]), 2)
+        
+        pico_idx = int(grp_sorted["taxa_queimada_pct"].values.argmax())
+        pico_ano = anos[pico_idx]
+        pico_taxa = taxas[pico_idx]
+        
         pre_taxa = round(float(grp_sorted[grp_sorted["ano"] < ano_criacao]["taxa_queimada_pct"].mean()), 2) if ano_criacao else None
         pos_taxa = round(float(grp_sorted[grp_sorted["ano"] >= ano_criacao]["taxa_queimada_pct"].mean()), 2) if ano_criacao else None
         series_by_uc[str(uid)] = {
@@ -124,7 +139,7 @@ def create_interactive_leaflet_dashboard(
             "pos_taxa": pos_taxa
         }
 
-    # Serie temporal agregada anual geral (1985 a 2023)
+    # Serie temporal agregada anual geral
     anual_geral = df_series.groupby("ano").agg(
         taxa_media=("taxa_queimada_pct", "mean"),
         burned_ha_sum=("burned_ha", "sum")
@@ -143,29 +158,33 @@ def create_interactive_leaflet_dashboard(
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dashboard Analítico de Incêndios - UCs Estaduais do Pará</title>
-  
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <!-- Chart.js para renderizacao de graficos interativos de alta definicao -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <title>Dashboard Analítico de Incêndios - IDEFLOR-Bio</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <style>
     * {{ box-sizing: border-box; margin: 0; padding: 0; }}
     html, body {{ width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #0F172A; }}
     #map {{ width: 100%; height: 100%; position: absolute; top: 0; bottom: 0; left: 0; right: 0; }}
 
-    /* Painel Esquerdo Compacto: Filtros, Totais e Grafico Geral */
+    /* Painel Lateral Unificado Inteligente */
     .left-panel {{
       position: absolute;
       top: 14px;
       left: 14px;
-      width: 285px;
-      background: rgba(255, 255, 255, 0.96);
+      width: 320px;
+      background: rgba(255, 255, 255, 0.97);
       backdrop-filter: blur(8px);
       padding: 12px 14px;
       border-radius: 8px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.22);
+      box-shadow: 0 4px 22px rgba(0,0,0,0.24);
       border: 1px solid #CBD5E1;
       z-index: 1000;
       transition: transform 0.25s ease;
@@ -173,7 +192,7 @@ def create_interactive_leaflet_dashboard(
       overflow-y: auto;
     }}
     .left-panel.collapsed {{
-      transform: translateX(-310px);
+      transform: translateX(-350px);
     }}
     .panel-toggle-btn {{
       position: absolute;
@@ -216,6 +235,36 @@ def create_interactive_leaflet_dashboard(
       background: none;
       padding: 2px 4px;
     }}
+
+    /* Abas de Modo de Analise */
+    .mode-tabs {{
+      display: flex;
+      gap: 4px;
+      margin-bottom: 10px;
+      background: #F1F5F9;
+      padding: 3px;
+      border-radius: 6px;
+      border: 1px solid #E2E8F0;
+    }}
+    .mode-tab {{
+      flex: 1;
+      padding: 6px 4px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #64748B;
+      background: transparent;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-align: center;
+    }}
+    .mode-tab.active {{
+      background: #FFFFFF;
+      color: #0F172A;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }}
+
     .filter-group {{
       margin-bottom: 7px;
     }}
@@ -279,51 +328,6 @@ def create_interactive_leaflet_dashboard(
       width: 100%;
     }}
 
-    /* Gaveta Direita: Inspecao Analitica Detalhada da UC */
-    .inspector-panel {{
-      position: absolute;
-      top: 14px;
-      right: 14px;
-      width: 360px;
-      max-height: calc(100% - 28px);
-      background: rgba(255, 255, 255, 0.98);
-      backdrop-filter: blur(10px);
-      padding: 14px 16px;
-      border-radius: 8px;
-      box-shadow: 0 6px 24px rgba(0,0,0,0.28);
-      border: 1px solid #CBD5E1;
-      z-index: 1000;
-      overflow-y: auto;
-      display: none;
-      animation: slideIn 0.22s ease-out;
-    }}
-    @keyframes slideIn {{
-      from {{ transform: translateX(380px); opacity: 0; }}
-      to {{ transform: translateX(0); opacity: 1; }}
-    }}
-    .inspector-header {{
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 8px;
-      padding-bottom: 6px;
-      border-bottom: 1px solid #E2E8F0;
-    }}
-    .inspector-title {{
-      font-size: 13.5px;
-      font-weight: 800;
-      color: #0F172A;
-      line-height: 1.25;
-    }}
-    .inspector-close {{
-      cursor: pointer;
-      font-size: 18px;
-      color: #64748B;
-      border: none;
-      background: none;
-      line-height: 1;
-      padding: 0 4px;
-    }}
     .badge {{
       display: inline-block;
       padding: 2px 6px;
@@ -351,12 +355,12 @@ def create_interactive_leaflet_dashboard(
       text-align: center;
     }}
     .metric-box .val {{
-      font-size: 13.5px;
+      font-size: 13px;
       font-weight: 800;
       color: #0F172A;
     }}
     .metric-box .lbl {{
-      font-size: 9px;
+      font-size: 8.5px;
       color: #64748B;
       text-transform: uppercase;
       font-weight: 600;
@@ -419,21 +423,59 @@ def create_interactive_leaflet_dashboard(
       z-index: 1000;
     }}
     .legend-title {{
-      font-weight: 700;
+      font-weight: 800;
       color: #0F172A;
       margin-bottom: 4px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
     }}
     .legend-item {{
       display: flex;
       align-items: center;
       margin-bottom: 2px;
+      color: #334155;
+      font-size: 9px;
     }}
-    .legend-box {{
-      width: 12px;
-      height: 8px;
-      border: 1px solid #000;
-      margin-right: 5px;
-      border-radius: 2px;
+    .legend-color {{
+      width: 13px;
+      height: 9px;
+      margin-right: 6px;
+      border: 1px solid #64748B;
+      border-radius: 1px;
+    }}
+
+    /* Marco de Criacao Legal */
+    .marco-box {{
+      background: #FEF2F2;
+      border: 1px solid #FECACA;
+      border-radius: 6px;
+      padding: 6px 8px;
+      margin-top: 6px;
+    }}
+    .marco-title {{
+      font-size: 9.5px;
+      font-weight: 700;
+      color: #991B1B;
+      margin-bottom: 3px;
+      text-transform: uppercase;
+    }}
+    .marco-grid {{
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+    }}
+    .marco-item {{
+      text-align: center;
+    }}
+    .marco-item .val {{
+      font-size: 11px;
+      font-weight: 700;
+      color: #991B1B;
+    }}
+    .marco-item .lbl {{
+      font-size: 8px;
+      color: #B91C1C;
     }}
 
     .leaflet-tooltip-custom {{
@@ -452,137 +494,167 @@ def create_interactive_leaflet_dashboard(
   <div id="map"></div>
 
   <!-- Orientacao no topo -->
-  <div class="top-hint">Selecione uma UC no mapa ou na lista para inspecionar gráficos e métricas</div>
+  <div class="top-hint">Clique em uma UC no mapa ou alterne para Análise por Unidade</div>
 
-  <!-- Painel Esquerdo: Filtros, Totais e Grafico Geral do Grupo -->
+  <!-- Painel Lateral Unificado Inteligente -->
   <div id="left-panel" class="left-panel">
     <div class="panel-header">
       <div class="panel-title">PAINEL ANALÍTICO</div>
       <button id="btn-collapse" class="panel-collapse-icon" title="Ocultar painel">«</button>
     </div>
 
-    <div class="filter-group">
-      <label class="filter-label" for="select-gerencia">Gerência Regional:</label>
-      <select id="select-gerencia" class="filter-select">
-        <option value="TODAS">Todas as 9 Gerências</option>
-        <option value="GRB">Belém (GRB)</option>
-        <option value="GRCN-I">Calha Norte I (GRCN-I)</option>
-        <option value="GRCN-II">Calha Norte II (GRCN-II)</option>
-        <option value="GRCN-III">Calha Norte III (GRCN-III)</option>
-        <option value="GRM">Marajó (GRM)</option>
-        <option value="GRNE">Nordeste Paraense (GRNE)</option>
-        <option value="GRA">Araguaia (GRA)</option>
-        <option value="GRTUC">Tucuruí (GRTUC)</option>
-        <option value="GRX">Xingu (GRX)</option>
-      </select>
+    <!-- Abas / Modos de Analise -->
+    <div class="mode-tabs">
+      <button id="tab-regional" class="mode-tab active">Visão Regional</button>
+      <button id="tab-unidade" class="mode-tab">Análise por Unidade</button>
     </div>
 
-    <div class="filter-group">
-      <label class="filter-label" for="select-grupo">Grupo SNUC:</label>
-      <select id="select-grupo" class="filter-select">
-        <option value="TODOS">Todos os Grupos</option>
-        <option value="Proteção Integral">Proteção Integral (11 UCs)</option>
-        <option value="Uso Sustentável">Uso Sustentável (18 UCs)</option>
-      </select>
+    <!-- SECAO 1: VISAO REGIONAL & GRUPOS -->
+    <div id="view-regional">
+      <div class="filter-group">
+        <label class="filter-label" for="select-gerencia">Gerência Regional:</label>
+        <select id="select-gerencia" class="filter-select">
+          <option value="TODAS">Todas as 9 Gerências</option>
+          <option value="GRB">Belém (GRB)</option>
+          <option value="GRCN-I">Calha Norte I (GRCN-I)</option>
+          <option value="GRCN-II">Calha Norte II (GRCN-II)</option>
+          <option value="GRCN-III">Calha Norte III (GRCN-III)</option>
+          <option value="GRM">Marajó (GRM)</option>
+          <option value="GRNE">Nordeste Paraense (GRNE)</option>
+          <option value="GRA">Araguaia (GRA)</option>
+          <option value="GRTUC">Tucuruí (GRTUC)</option>
+          <option value="GRX">Xingu (GRX)</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label class="filter-label" for="select-grupo">Grupo SNUC:</label>
+        <select id="select-grupo" class="filter-select">
+          <option value="TODOS">Todos os Grupos</option>
+          <option value="Proteção Integral">Proteção Integral (11 UCs)</option>
+          <option value="Uso Sustentável">Uso Sustentável (18 UCs)</option>
+        </select>
+      </div>
+
+      <div class="stats-card">
+        <div class="stats-row"><span>UCs Filtradas:</span><strong id="stat-count">29</strong></div>
+        <div class="stats-row"><span>Área Total:</span><strong id="stat-area">21,4 mi ha</strong></div>
+        <div class="stats-row"><span>Taxa Média Grupo:</span><strong id="stat-media">1,82% / ano</strong></div>
+      </div>
+
+      <!-- Grafico 1 no Painel Lateral: Evolucao Temporal Media do Grupo Filtrado -->
+      <div class="mini-chart-box">
+        <div class="mini-chart-title">
+          <span>Evolução Anual Média (%)</span>
+          <span style="font-size: 8.5px; color: #64748B;">{min(geral_anos)} a {max(geral_anos)}</span>
+        </div>
+        <div class="chart-container-panel">
+          <canvas id="group-chart-canvas"></canvas>
+        </div>
+      </div>
+      
+      <div style="margin-top: 10px; font-size: 10px; color: #64748B; text-align: center; line-height: 1.35;">
+        Clique em qualquer UC no mapa para inspecionar métricas e gráficos individuais
+      </div>
     </div>
 
-    <div class="filter-group">
-      <label class="filter-label" for="select-uc-direct">Selecionar UC Direta:</label>
-      <select id="select-uc-direct" class="filter-select">
-        <option value="">Selecione na lista...</option>
-      </select>
+    <!-- SECAO 2: ANALISE DETALHADA POR UNIDADE -->
+    <div id="view-unidade" style="display: none;">
+      <div class="filter-group">
+        <label class="filter-label" for="select-uc-direct">Unidade de Conservação:</label>
+        <select id="select-uc-direct" class="filter-select">
+          <option value="">Selecione uma UC na lista...</option>
+        </select>
+      </div>
+
+      <div id="uc-info-container" style="display: none;">
+        <div style="margin-bottom: 6px;">
+          <div id="insp-nome" style="font-size: 12px; font-weight: 700; color: #0F172A; line-height: 1.25;">Nome da UC</div>
+          <div style="margin-top: 3px; display: flex; gap: 4px; flex-wrap: wrap;">
+            <span id="insp-badge-grupo" class="badge">Grupo</span>
+            <span id="insp-badge-ger" class="badge badge-ger">Gerência</span>
+          </div>
+        </div>
+
+        <div class="metric-grid">
+          <div class="metric-box">
+            <div id="insp-taxa-media" class="val">0,00%</div>
+            <div class="lbl">Média Histórica</div>
+          </div>
+          <div class="metric-box">
+            <div id="insp-pico" class="val">0,00%</div>
+            <div id="insp-pico-ano" class="lbl">Pico Máximo</div>
+          </div>
+          <div class="metric-box">
+            <div id="insp-area" class="val">0 ha</div>
+            <div class="lbl">Área Territorial</div>
+          </div>
+          <div class="metric-box">
+            <div id="insp-total-queimado" class="val">0 ha</div>
+            <div class="lbl">Total Queimado Acum.</div>
+          </div>
+        </div>
+
+        <!-- Marco Legal -->
+        <div id="insp-marco-box" class="marco-box">
+          <div class="marco-title">Avaliação do Marco Legal</div>
+          <div class="marco-grid">
+            <div class="marco-item">
+              <div id="insp-pre-taxa" class="val">-</div>
+              <div class="lbl">Média Pré-Decreto</div>
+            </div>
+            <div class="marco-item">
+              <div id="insp-pos-taxa" class="val">-</div>
+              <div class="lbl">Média Pós-Decreto</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Grafico 2: Serie Historica Completa da UC com Marco Legal -->
+        <div class="chart-box">
+          <div class="chart-title">
+            <span>Série Histórica Anual de Queima (% UC)</span>
+            <span id="insp-marco-lbl" style="font-size: 9px; color: #DC2626; font-weight: 700;"></span>
+          </div>
+          <div class="chart-container-uc">
+            <canvas id="uc-chart-canvas"></canvas>
+          </div>
+          <div style="display: flex; justify-content: center; gap: 12px; margin-top: 4px; font-size: 8.5px; color: #475569;">
+            <div style="display: flex; align-items: center; gap: 3px;"><span style="width: 7px; height: 7px; background: #2563EB; border-radius: 1px;"></span>Antes Decreto</div>
+            <div style="display: flex; align-items: center; gap: 3px;"><span style="width: 7px; height: 7px; background: #DC2626; border-radius: 1px;"></span>Após Decreto</div>
+          </div>
+        </div>
+      </div>
+      
+      <div id="uc-empty-state" style="padding: 24px 10px; text-align: center; color: #64748B; font-size: 11px; line-height: 1.4;">
+        Selecione uma UC na lista acima ou clique diretamente em qualquer unidade no mapa para carregar seus indicadores e gráficos históricos.
+      </div>
+
+      <button id="btn-back-regional" style="margin-top: 10px; width: 100%; padding: 6px; font-size: 11px; font-weight: 700; color: #0284C7; background: #F0F9FF; border: 1px solid #BAE6FD; border-radius: 4px; cursor: pointer; transition: all 0.15s ease;">
+        « Voltar à Visão Regional
+      </button>
     </div>
 
-    <div class="filter-group">
+    <!-- Seletor de Mapa Base (Sempre Acessivel) -->
+    <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #E2E8F0;">
       <label class="filter-label" for="select-basemap">Mapa Base:</label>
       <select id="select-basemap" class="filter-select">
         <option value="gray">Esri Light Gray Canvas</option>
         <option value="sat">Satélite de Alta Resolução (Esri)</option>
       </select>
     </div>
-
-    <div class="stats-card">
-      <div class="stats-row"><span>UCs Exibidas:</span><strong id="stat-count">29</strong></div>
-      <div class="stats-row"><span>Área Total:</span><strong id="stat-area">21,4 mi ha</strong></div>
-      <div class="stats-row"><span>Taxa Média Grupo:</span><strong id="stat-media">1,82% / ano</strong></div>
-    </div>
-
-    <!-- Grafico 1 no Painel Lateral: Evolucao Temporal Media do Grupo Filtrado -->
-    <div class="mini-chart-box">
-      <div class="mini-chart-title">
-        <span>Evolução Anual Média (%)</span>
-        <span style="font-size: 8.5px; color: #64748B;">{min(geral_anos)} a {max(geral_anos)}</span>
-      </div>
-      <div class="chart-container-panel">
-        <canvas id="group-chart-canvas"></canvas>
-      </div>
-    </div>
   </div>
 
-  <button id="btn-expand" class="panel-toggle-btn">Filtros »</button>
-
-  <!-- Gaveta Lateral Direita: Inspecao Detalhada da UC Selecionada com Graficos -->
-  <div id="inspector" class="inspector-panel">
-    <div class="inspector-header">
-      <div>
-        <div id="insp-nome" class="inspector-title">Nome da UC</div>
-        <div>
-          <span id="insp-badge-grupo" class="badge">Grupo</span>
-          <span id="insp-badge-ger" class="badge badge-ger">Gerência</span>
-        </div>
-      </div>
-      <button id="btn-close-inspect" class="inspector-close">&times;</button>
-    </div>
-
-    <div class="metric-grid">
-      <div class="metric-box">
-        <div id="insp-taxa-media" class="val">0,00%</div>
-        <div class="lbl">Média Histórica</div>
-      </div>
-      <div class="metric-box">
-        <div id="insp-pico" class="val">0,00%</div>
-        <div id="insp-pico-ano" class="lbl">Pico Máximo</div>
-      </div>
-      <div class="metric-box">
-        <div id="insp-area" class="val">0 ha</div>
-        <div class="lbl">Área Territorial</div>
-      </div>
-      <div class="metric-box">
-        <div id="insp-total-queimado" class="val">0 ha</div>
-        <div class="lbl">Total Queimado Acum.</div>
-      </div>
-    </div>
-
-    <!-- Grafico 2: Serie Historica Completa da UC com Marco Legal -->
-    <div class="chart-box">
-      <div class="chart-title">
-        <span>Série Histórica Anual de Queima (% UC)</span>
-        <span id="insp-marco-lbl" style="font-size: 9.5px; color: #DC2626; font-weight: 700;"></span>
-      </div>
-      <div class="chart-container-uc">
-        <canvas id="uc-chart-canvas"></canvas>
-      </div>
-      <div style="display: flex; justify-content: center; gap: 14px; margin-top: 6px; font-size: 9.5px; color: #475569;">
-        <div style="display: flex; align-items: center; gap: 4px;"><span style="width: 8px; height: 8px; background: #2563EB; border-radius: 1px;"></span>Antes do Decreto</div>
-        <div style="display: flex; align-items: center; gap: 4px;"><span style="width: 8px; height: 8px; background: #DC2626; border-radius: 1px;"></span>Após o Decreto</div>
-      </div>
-    </div>
-
-    <div id="insp-marco-box" class="stats-card" style="margin-top: 8px; font-size: 10.5px;">
-      <div style="font-weight: 700; color: #0F172A; margin-bottom: 3px;">Avaliação do Marco Legal:</div>
-      <div class="stats-row"><span>Média Pré-Criação:</span><strong id="insp-pre-taxa">-</strong></div>
-      <div class="stats-row"><span>Média Pós-Criação:</span><strong id="insp-pos-taxa">-</strong></div>
-    </div>
-  </div>
+  <button id="btn-expand" class="panel-toggle-btn">Painel Analítico »</button>
 
   <!-- Legenda Cartografica -->
   <div class="legend">
-    <div class="legend-title">Taxa Média de Queima (% UC/ano)</div>
-    <div class="legend-item"><div class="legend-box" style="background: #FFFFB2;"></div><span>0,00% a 0,50% (Baixíssima)</span></div>
-    <div class="legend-item"><div class="legend-box" style="background: #FECC5C;"></div><span>0,51% a 2,00% (Baixa)</span></div>
-    <div class="legend-item"><div class="legend-box" style="background: #FD8D3C;"></div><span>2,01% a 4,00% (Moderada)</span></div>
-    <div class="legend-item"><div class="legend-box" style="background: #F03B20;"></div><span>4,01% a 7,00% (Alta)</span></div>
-    <div class="legend-item"><div class="legend-box" style="background: #BD0026;"></div><span>Acima de 7,00% (Crítica)</span></div>
+    <div class="legend-title">Taxa Média de Queima</div>
+    <div class="legend-item"><span class="legend-color" style="background: #FFFFB2;"></span>&lt; 0,5% (Baixíssima)</div>
+    <div class="legend-item"><span class="legend-color" style="background: #FECC5C;"></span>0,5% a 2% (Baixa)</div>
+    <div class="legend-item"><span class="legend-color" style="background: #FD8D3C;"></span>2% a 4% (Moderada)</div>
+    <div class="legend-item"><span class="legend-color" style="background: #F03B20;"></span>4% a 7% (Alta)</div>
+    <div class="legend-item"><span class="legend-color" style="background: #BD0026;"></span>&gt; 7% (Crítica)</div>
   </div>
 
   <script>
@@ -613,20 +685,23 @@ def create_interactive_leaflet_dashboard(
 
     L.control.zoom({{ position: 'bottomright' }}).addTo(map);
 
-    // Basemaps gratuitos da Esri
+    // Camadas Base
     const layerGray = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{{z}}/{{y}}/{{x}}', {{
-      attribution: 'Esri, HERE, &copy; OpenStreetMap'
+      maxZoom: 16,
+      attribution: 'Esri &copy; OpenStreetMap'
     }}).addTo(map);
 
     const layerSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{{z}}/{{y}}/{{x}}', {{
-      attribution: 'Esri, Maxar'
+      maxZoom: 18,
+      attribution: 'Esri &copy; Maxar, Earthstar'
     }});
 
-    // Camada Limite Estadual do Para
+    // Camada Limite do Para
     L.geoJSON(paraGeo, {{
       style: {{
-        fill: false,
-        color: '#0F172A',
+        color: '#475569',
+        fillColor: '#FFFFFF',
+        fillOpacity: 0.15,
         weight: 1.8,
         dashArray: '4, 4'
       }}
@@ -656,14 +731,14 @@ def create_interactive_leaflet_dashboard(
         );
 
         layer.on('click', function() {{
-          selectUC(feature.properties.id);
+          selectUC(feature.properties.id, true);
         }});
       }}
     }}).addTo(map);
 
     // Ajustar enquadramento inicial
     map.fitBounds([[-9.9, -58.9], [2.5, -46.0]], {{
-      paddingTopLeft: [290, 20],
+      paddingTopLeft: [330, 20],
       paddingBottomRight: [20, 20]
     }});
 
@@ -744,12 +819,53 @@ def create_interactive_leaflet_dashboard(
     // Inicializar grafico do grupo estadual inicial
     initGroupChart(geralAnos, geralTaxas);
 
-    // Filtros
+    // Alternador de Abas de Analise (Visao Regional vs Analise por Unidade)
+    const tabRegional = document.getElementById('tab-regional');
+    const tabUnidade = document.getElementById('tab-unidade');
+    const viewRegional = document.getElementById('view-regional');
+    const viewUnidade = document.getElementById('view-unidade');
+    const btnBackRegional = document.getElementById('btn-back-regional');
+
+    let currentMode = 'regional';
+
+    function switchMode(mode) {{
+      currentMode = mode;
+      if (mode === 'regional') {{
+        tabRegional.classList.add('active');
+        tabUnidade.classList.remove('active');
+        viewRegional.style.display = 'block';
+        viewUnidade.style.display = 'none';
+        clearSelectionHighlight();
+        updateFilters();
+      }} else {{
+        tabUnidade.classList.add('active');
+        tabRegional.classList.remove('active');
+        viewUnidade.style.display = 'block';
+        viewRegional.style.display = 'none';
+
+        // Na aba de unidade, garante que todas as UCs fiquem visiveis para selecao livre
+        ucsLayer.eachLayer(layer => {{
+          layer.setStyle({{ opacity: 1, fillOpacity: 0.88 }});
+        }});
+
+        if (selDirect.value) {{
+          selectUC(parseInt(selDirect.value), false);
+        }}
+      }}
+    }}
+
+    tabRegional.addEventListener('click', () => switchMode('regional'));
+    tabUnidade.addEventListener('click', () => switchMode('unidade'));
+    btnBackRegional.addEventListener('click', () => switchMode('regional'));
+
+    // Filtros Regionais
     const selGer = document.getElementById('select-gerencia');
     const selGrp = document.getElementById('select-grupo');
     const selBase = document.getElementById('select-basemap');
 
     function updateFilters() {{
+      if (currentMode !== 'regional') return;
+
       const gerVal = selGer.value;
       const grpVal = selGrp.value;
 
@@ -776,17 +892,17 @@ def create_interactive_leaflet_dashboard(
         }}
       }});
 
-      // Interação de zoom dinâmica com os filtros
+      // Interacao de zoom dinamica com os filtros regionais
       if (visibleBounds.isValid() && count > 0) {{
         if (gerVal === 'TODAS' && grpVal === 'TODOS') {{
           map.fitBounds([[-9.9, -58.9], [2.5, -46.0]], {{
-            paddingTopLeft: [290, 20],
+            paddingTopLeft: [330, 20],
             paddingBottomRight: [20, 20],
             animate: true
           }});
         }} else {{
           map.fitBounds(visibleBounds, {{
-            paddingTopLeft: [300, 40],
+            paddingTopLeft: [340, 40],
             paddingBottomRight: [40, 40],
             maxZoom: 10,
             animate: true
@@ -831,15 +947,15 @@ def create_interactive_leaflet_dashboard(
 
     selDirect.addEventListener('change', (e) => {{
       if (e.target.value) {{
-        selectUC(parseInt(e.target.value));
+        selectUC(parseInt(e.target.value), false);
+      }} else {{
+        clearSelectionHighlight();
+        document.getElementById('uc-empty-state').style.display = 'block';
+        document.getElementById('uc-info-container').style.display = 'none';
       }}
     }});
 
-    document.getElementById('btn-close-inspect').addEventListener('click', () => {{
-      clearSelection();
-    }});
-
-    function selectUC(id) {{
+    function selectUC(id, switchTab) {{
       clearSelectionHighlight();
 
       const layer = layerMap[id];
@@ -858,8 +974,21 @@ def create_interactive_leaflet_dashboard(
       const p = feat.properties;
       const s = seriesData[id] || {{}};
 
-      const inspector = document.getElementById('inspector');
-      inspector.style.display = 'block';
+      selDirect.value = id;
+
+      // Se clicou no mapa enquanto estava na Visao Regional, alterna automaticamente para Analise por Unidade
+      if (switchTab && currentMode !== 'unidade') {{
+        tabUnidade.classList.add('active');
+        tabRegional.classList.remove('active');
+        viewUnidade.style.display = 'block';
+        viewRegional.style.display = 'none';
+        currentMode = 'unidade';
+        ucsLayer.eachLayer(l => l.setStyle({{ opacity: 1, fillOpacity: 0.88 }}));
+        layer.setStyle({{ color: '#000000', weight: 3.5 }});
+      }}
+
+      document.getElementById('uc-empty-state').style.display = 'none';
+      document.getElementById('uc-info-container').style.display = 'block';
 
       document.getElementById('insp-nome').textContent = p.nome;
       const bg = document.getElementById('insp-badge-grupo');
@@ -886,10 +1015,10 @@ def create_interactive_leaflet_dashboard(
 
       renderUCChart(s, s.ano_criacao);
 
-      // Focar na geometria com zoom suave e ajuste de margem
+      // Focar na geometria com zoom suave
       map.fitBounds(layer.getBounds(), {{
-        paddingTopLeft: [320, 50],
-        paddingBottomRight: [400, 50],
+        paddingTopLeft: [340, 50],
+        paddingBottomRight: [50, 50],
         maxZoom: 11,
         animate: true
       }});
@@ -905,12 +1034,6 @@ def create_interactive_leaflet_dashboard(
       }}
     }}
 
-    function clearSelection() {{
-      clearSelectionHighlight();
-      document.getElementById('inspector').style.display = 'none';
-      selDirect.value = '';
-    }}
-
     function renderUCChart(series, anoCriacao) {{
       const ctx = document.getElementById('uc-chart-canvas').getContext('2d');
       if (ucChart) ucChart.destroy();
@@ -919,8 +1042,10 @@ def create_interactive_leaflet_dashboard(
 
       const anos = series.anos;
       const taxas = series.taxas;
-      const colors = anos.map(ano => {{
-        return (anoCriacao && ano >= anoCriacao) ? '#DC2626' : '#2563EB';
+
+      const bgColors = anos.map(ano => {{
+        if (!anoCriacao) return '#2563EB';
+        return ano < anoCriacao ? '#2563EB' : '#DC2626';
       }});
 
       ucChart = new Chart(ctx, {{
@@ -928,10 +1053,10 @@ def create_interactive_leaflet_dashboard(
         data: {{
           labels: anos,
           datasets: [{{
+            label: 'Taxa Queimada (%)',
             data: taxas,
-            backgroundColor: colors,
-            borderRadius: 2,
-            borderWidth: 0
+            backgroundColor: bgColors,
+            borderRadius: 2
           }}]
         }},
         options: {{
@@ -941,8 +1066,8 @@ def create_interactive_leaflet_dashboard(
             legend: {{ display: false }},
             tooltip: {{
               callbacks: {{
-                title: (items) => `Ano: ${{items[0].label}}`,
-                label: (ctx) => `Taxa: ${{ctx.raw.toFixed(2)}}% da UC`
+                title: (items) => `Ano ${{items[0].label}}`,
+                label: (ctx) => `${{ctx.raw.toFixed(2)}}% (${{Math.round(series.burned_ha[ctx.dataIndex]).toLocaleString('pt-BR')}} ha)`
               }}
             }}
           }},
@@ -950,14 +1075,14 @@ def create_interactive_leaflet_dashboard(
             x: {{
               ticks: {{
                 maxTicksLimit: 8,
-                font: {{ size: 9 }},
+                font: {{ size: 8.5 }},
                 color: '#64748B'
               }},
               grid: {{ display: false }}
             }},
             y: {{
               ticks: {{
-                font: {{ size: 9 }},
+                font: {{ size: 8.5 }},
                 color: '#64748B',
                 callback: (v) => v.toFixed(1) + '%'
               }},
@@ -973,9 +1098,10 @@ def create_interactive_leaflet_dashboard(
 """
 
     if save_html:
-        dest_html = output_path or (DATA_OUTPUT / "mapa_interativo_fogo_ucs.html")
-        with open(dest_html, "w", encoding="utf-8") as f:
+        out = output_path or (DATA_OUTPUT / "mapa_interativo_fogo_ucs.html")
+        out.parent.mkdir(parents=True, exist_ok=True)
+        with open(out, "w", encoding="utf-8") as f:
             f.write(html_template)
-        print(f"Mini Dashboard Leaflet com Chart.js salvo em: {dest_html}")
+        print(f"Mapa interativo oficial salvo com sucesso em: {out}")
 
     return html_template

@@ -207,8 +207,7 @@ dropdown_ger_matriz = widgets.Dropdown(
 )
 
 def atualizar_matriz_gerencia(gerencia_sel):
-    altura = 11 if gerencia_sel == "TODAS" else max(4, len(df_series[df_series["gerencia"] == gerencia_sel]["uc_id"].unique()) * 0.9 + 2)
-    fig, ax = plot_matriz_intensidade_unidades(df_series, gerencia_filtro=gerencia_sel, figsize=(16, altura))
+    fig, ax = plot_matriz_intensidade_unidades(df_series, gerencia_filtro=gerencia_sel)
     plt.show()
 
 widgets.interact(atualizar_matriz_gerencia, gerencia_sel=dropdown_ger_matriz)
@@ -298,25 +297,24 @@ plt.show()
 
     cells.append(make_cell("markdown", """### Prancha Cartográfica Temática Interativa por Ano Específico
 
-Utilize o controle deslizante abaixo para selecionar qualquer ano da série temporal (1985 a 2026). A prancha temática estática oficial do NGEO / IDEFLOR-Bio será renderizada instantaneamente para o ano escolhido.
+Selecione qualquer ano da série temporal (1985 a 2026) na lista suspensa abaixo para gerar e visualizar a prancha temática estática oficial do NGEO / IDEFLOR-Bio correspondente.
 """))
 
-    cells.append(make_cell("code", """# Seletor interativo para escolha e geracao da prancha cartografica estatica por ano
-slider_ano = widgets.IntSlider(
-    min=int(df_series["ano"].min()),
-    max=int(df_series["ano"].max()),
-    step=1,
+    cells.append(make_cell("code", """# Seletor interativo em lista suspensa (Dropdown) para geracao da prancha cartografica por ano
+anos_disponiveis = sorted(df_series["ano"].unique(), reverse=True)
+
+dropdown_ano = widgets.Dropdown(
+    options=anos_disponiveis,
     value=int(df_series["ano"].max()),
     description="Ano:",
-    continuous_update=False,
-    layout=widgets.Layout(width="550px")
+    layout=widgets.Layout(width="350px")
 )
 
 def renderizar_mapa_ano(ano_escolhido):
     fig_ano, ax_ano = plot_static_map(df_series, ano=ano_escolhido, figsize=(16, 11))
     plt.show()
 
-widgets.interact(renderizar_mapa_ano, ano_escolhido=slider_ano)
+widgets.interact(renderizar_mapa_ano, ano_escolhido=dropdown_ano)
 """))
 
     cells.append(make_cell("markdown", """### Mini Dashboard Analítico Interativo (MapLibre GL JS)
