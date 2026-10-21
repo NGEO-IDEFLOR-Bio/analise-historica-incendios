@@ -32,16 +32,16 @@ def build_notebook():
 
     # 1. TITULO, BADGE DO COLAB E CONTEXTUALIZACAO
     cells.append(make_cell("markdown", """# Analise Historica do Regime de Fogo nas Unidades de Conservacao do Para (IDEFLOR-Bio)
-### Serie Temporal de Cicatrizes de Queimada (1985 a 2023) | MapBiomas Fogo Colecao 3 (30 metros)
+### Serie Temporal Integrada de Cicatrizes de Queimada (1985 a 2026) | MapBiomas Fogo & MODIS GEE
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/NGEO-IDEFLOR-Bio/analise-historica-incendios/blob/main/notebooks/01_analise_historica_incendios.ipynb)
 
-Este caderno documenta a analise espaco-temporal de cicatrizes de fogo registradas entre 1985 e 2023 nas 29 Unidades de Conservacao Estaduais do Para sob gestao do IDEFLOR-Bio. Os objetivos compreendem o levantamento da dinamica estadual, a comparacao normalizada por area entre Gerencias Regionais, a segregacao por grupo do SNUC (Protecao Integral versus Uso Sustentavel) e a verificacao empirica do efeito do decreto de criacao de cada unidade sobre a taxa de queima territorial.
+Este caderno documenta a analise espaco-temporal de cicatrizes de fogo registradas entre 1985 e 2026 nas 29 Unidades de Conservacao Estaduais do Para sob gestao do IDEFLOR-Bio. Os dados integram a serie historica de 30 metros do MapBiomas Fogo (1985 a 2023) com o monitoramento de cicatrizes mensais MODIS MCD64A1 via Google Earth Engine (2024 a 2026). Os objetivos compreendem o levantamento da dinamica estadual, a comparacao normalizada por area entre Gerencias Regionais, a segregacao por grupo do SNUC (Protecao Integral versus Uso Sustentavel) e a verificacao empirica do efeito do decreto de criacao de cada unidade sobre a taxa de queima territorial.
 """))
 
     # 2. INSTALACAO DE DEPENDENCIAS (GOOGLE COLAB)
     cells.append(make_cell("code", """# Instalacao de dependencias (necessario na execucao via Google Colab)
-!pip install -q geopandas matplotlib seaborn ipywidgets
+!pip install -q geopandas matplotlib seaborn ipywidgets earthengine-api
 """))
 
     # 3. SUPORTE A EXECUCAO E SINCRONIZACAO NO GOOGLE COLAB
@@ -84,7 +84,27 @@ else:
 print(f"Raiz do projeto configurada: {ROOT_DIR}")
 """))
 
-    # 4. SETUP E IMPORTACOES
+    # 4. CONEXAO COM O GOOGLE EARTH ENGINE (INTERATIVA NO COLAB)
+    cells.append(make_cell("markdown", """### Conexao Universal com o Google Earth Engine (GEE)
+
+Este notebook conta com autenticacao adaptativa:
+* **No Google Colab:** Conecta de forma interativa com a sua conta Google em um pop-up de 1 clique, sem necessidade de arquivos de chave privada.
+* **No ambiente local:** Utiliza credenciais de Service Account ou sessao de usuario ativa.
+
+A base historica integrada (1985 a 2026) ja vem pre-processada no repositorio para execucao imediata de todos os graficos e mapas; a conexao com o GEE permite reprocessar cicatrizes sob demanda.
+"""))
+
+    cells.append(make_cell("code", """# Conexao interativa com o Google Earth Engine
+from src.gee_auth import init_gee
+
+try:
+    init_gee()
+    print("Google Earth Engine inicializado com sucesso!")
+except Exception as e:
+    print(f"Aviso: GEE nao inicializado ({e}). As analises continuam normalmente usando os dados locais.")
+"""))
+
+    # 5. SETUP E IMPORTACOES
     cells.append(make_cell("code", """import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -102,18 +122,22 @@ apply_ggplot_theme()
 print("Modulos carregados e padronizacao grafica ativada.")
 """))
 
-    # 4. CARREGAMENTO DOS DADOS
-    cells.append(make_cell("code", """# Carregamento da serie historica anual processada via Google Earth Engine
-df_series = pd.read_csv(DATA_PROCESSED / "mapbiomas_fogo_series_1985_2023.csv")
+    # 6. CARREGAMENTO DOS DADOS
+    cells.append(make_cell("code", """# Carregamento da serie historica anual integrada (1985 a 2026)
+csv_full = DATA_PROCESSED / "mapbiomas_fogo_series_1985_2026.csv"
+if not csv_full.exists():
+    csv_full = DATA_PROCESSED / "mapbiomas_fogo_series_1985_2023.csv"
+
+df_series = pd.read_csv(csv_full)
 df_meta = pd.read_csv(CSV_METADATA_UCS)
 
-print(f"Registros anuais carregados: {len(df_series)} (29 UCs x 39 anos)")
-print(f"Intervalo temporal: {df_series['ano'].min()} a {df_series['ano'].max()}")
+print(f"Registros anuais carregados: {len(df_series)} (29 UCs)")
+print(f"Intervalo temporal analisado: {df_series['ano'].min()} a {df_series['ano'].max()} ({df_series['ano'].nunique()} anos)")
 df_series.head(5)
 """))
 
-    # 5. PANORAMA GERAL ESTADUAL
-    cells.append(make_cell("markdown", """## 1. Panorama Geral Estadual: Dinamica Anual de Queimadas (1985 a 2023)
+    # 7. PANORAMA GERAL ESTADUAL
+    cells.append(make_cell("markdown", """## 1. Panorama Geral Estadual: Dinamica Anual de Queimadas (1985 a 2026)
 
 O grafico abaixo apresenta a soma anual da area queimada no conjunto das 29 Unidades de Conservacao. A linha tracejada corresponde a media movel centrada de 5 anos para atenuacao da variabilidade interanual. As anotacoes apontam os anos com maior extensao territorial queimada, associados a fenomenos climaticos de seca severa como os eventos de El Nino.
 """))
@@ -122,110 +146,110 @@ O grafico abaixo apresenta a soma anual da area queimada no conjunto das 29 Unid
 plt.show()
 """))
 
-    # 6. MATRIZ DE CALOR POR GERENCIA
+    # 8. MATRIZ DE CALOR POR GERENCIA
     cells.append(make_cell("markdown", """### Matriz de Intensidade Temporal por Gerencia Regional
 
 A distribuicao matricial abaixo indica a taxa media anual de queima (percentual da area da gerencia atingida) por ano e por regional administrativa do IDEFLOR-Bio.
 """))
 
-    cells.append(make_cell("code", """from src.config import SIGLAS_GERENCIAS
-
-df_hm = df_series.copy()
-df_hm["sigla"] = df_hm["gerencia"].map(SIGLAS_GERENCIAS).fillna(df_hm["gerencia"])
-pivot_fogo = df_hm.pivot_table(index="sigla", columns="ano", values="taxa_queimada_pct", aggfunc="mean")
-
-fig, ax = plt.subplots(figsize=(15, 6))
-sns.heatmap(
-    pivot_fogo,
-    cmap="YlOrRd",
-    linewidths=0.2,
-    linecolor="#F3F4F6",
-    cbar_kws={"label": "Taxa Media de Queima (% do territorio atingido)", "shrink": 0.7},
-    ax=ax
+    cells.append(make_cell("code", """# Construcao da matriz pivoteada de taxa media anual por gerencia
+pivot_gerencia = df_series.pivot_table(
+    index="gerencia",
+    columns="ano",
+    values="taxa_queimada_pct",
+    aggfunc="mean"
 )
-ax.set_title("Matriz Historica de Pressao de Fogo por Gerencia Regional (1985 a 2023)", fontsize=13, fontweight="bold", pad=12)
-ax.set_xlabel("Ano", fontsize=10, labelpad=8)
-ax.set_ylabel("Gerencia Regional", fontsize=10, labelpad=8)
+
+plt.figure(figsize=(15, 6))
+sns.heatmap(
+    pivot_gerencia,
+    cmap="YlOrRd",
+    linewidths=0.5,
+    cbar_kws={"label": "Taxa Media de Queima (% da UC)"}
+)
+plt.title("Intensidade Anual de Queimadas por Gerencia Regional do IDEFLOR-Bio", fontsize=13, fontweight="bold", pad=12)
+plt.xlabel("Ano", fontsize=10, fontweight="bold")
+plt.ylabel("Gerencia Regional", fontsize=10, fontweight="bold")
+plt.xticks(rotation=45)
 plt.tight_layout()
 plt.show()
 """))
 
-    # 7. COMPARATIVO REGIONAL NORMALIZADO
-    cells.append(make_cell("markdown", """## 2. Comparativo Regional: Normalizacao por Area Territorial
+    # 9. ANALISE COMPARATIVA: PROTECAO INTEGRAL VS USO SUSTENTAVEL
+    cells.append(make_cell("markdown", """## 2. Regime de Fogo por Categoria e Grupo SNUC
 
-A comparacao direta em hectares absolutos produz distorcao analitica devido a diferenca de escala entre as regionais (a exemplo da Calha Norte, com milhoes de hectares, em relacao a Belem ou Nordeste). O indicador utilizado a seguir corresponde a taxa media anual percentual de queima, calculada sobre a area total de cada gerencia.
+Comparativo do comportamento historico do fogo entre Unidades de Protecao Integral e Unidades de Uso Sustentavel, avaliando o grau de vulnerabilidade de cada modelo de gestao.
 """))
 
-    cells.append(make_cell("code", """fig, ax = plot_comparativo_gerencias(df_series, figsize=(13, 6))
-plt.show()
-"""))
+    cells.append(make_cell("code", """df_grupo_ano = df_series.groupby(["ano", "grupo"]).agg(
+    area_queimada_ha=("burned_ha", "sum"),
+    area_total_ha=("area_uc_ha", "sum")
+).reset_index()
 
-    # 8. COMPARATIVO POR GRUPO SNUC
-    cells.append(make_cell("markdown", """### Comportamento Temporal por Categoria de Manejo (SNUC)
+df_grupo_ano["taxa_queimada_pct"] = (df_grupo_ano["area_queimada_ha"] / df_grupo_ano["area_total_ha"]) * 100
 
-Comparacao das medias anuais entre unidades de Protecao Integral e unidades de Uso Sustentavel.
-"""))
-
-    cells.append(make_cell("code", """df_grupo = df_series.groupby(["grupo", "ano"])["taxa_queimada_pct"].mean().reset_index()
-
-fig, ax = plt.subplots(figsize=(12, 5))
-for grp, cor, ls in zip(["Proteção Integral", "Uso Sustentável"], ["#1B5E20", "#D84315"], ["-", "--"]):
-    sub = df_grupo[df_grupo["grupo"] == grp]
-    ax.plot(sub["ano"], sub["taxa_queimada_pct"], label=grp, color=cor, linestyle=ls, linewidth=2.0)
-
-ax.set_title("Evolucao da Taxa Media de Queima por Grupo SNUC (1985 a 2023)", fontsize=13, fontweight="bold", pad=12)
-ax.set_ylabel("Taxa Media Anual (% da UC)", fontsize=10)
-ax.set_xlabel("Ano", fontsize=10)
-ax.legend(title="Grupo SNUC", frameon=False)
+plt.figure(figsize=(13, 5))
+sns.lineplot(
+    data=df_grupo_ano,
+    x="ano",
+    y="taxa_queimada_pct",
+    hue="grupo",
+    palette={"Proteção Integral": "#1E3A8A", "Uso Sustentável": "#D97706"},
+    linewidth=2.2
+)
+plt.title("Evolucao da Taxa Anual de Queima por Grupo do SNUC", fontsize=12, fontweight="bold", pad=12)
+plt.xlabel("Ano", fontsize=10, fontweight="bold")
+plt.ylabel("Taxa de Queima Ponderada (%)", fontsize=10, fontweight="bold")
+plt.grid(True, linestyle=":", alpha=0.6)
 plt.tight_layout()
 plt.show()
 """))
 
-    # 9. ANALISE POR UNIDADE E MARCO LEGAL
-    cells.append(make_cell("markdown", """## 3. Analise por Unidade de Conservacao: Impacto do Marco Legal de Criacao
+    # 10. AVALIACAO DO MARCO LEGAL
+    cells.append(make_cell("markdown", """## 3. Avaliacao do Marco Legal de Criacao das Unidades de Conservacao
 
-A secao a seguir viabiliza a verificacao da taxa anual de queima antes e apos a data formal de criacao de cada unidade. O seletor interativo permite inspecionar individualmente qualquer uma das 29 areas protegidas.
+Verificacao do comportamento da taxa de queima territorial nos periodos anterior e posterior ao decreto de criacao de cada unidade. O seletor abaixo permite inspecionar cada uma das 29 UCs individualmente.
 """))
 
-    cells.append(make_cell("code", """# Menu seletor de Unidades de Conservacao
-ucs_disponiveis = df_meta.sort_values(by="nome")[["id", "nome", "ano_criacao", "gerencia"]].values
-opcoes_dropdown = [(f"{nome} (Criacao: {ano})", int(uid)) for uid, nome, ano, ger in ucs_disponiveis]
+    cells.append(make_cell("code", """# Seletor interativo para inspecao de cada UC
+ucs_validas = sorted(df_series["uc_id"].unique())
+nomes_map = dict(zip(df_meta["id"], df_meta["nome"]))
 
 dropdown_uc = widgets.Dropdown(
-    options=opcoes_dropdown,
-    value=opcoes_dropdown[0][1],
-    description="UC Selecionada:",
-    style={"description_width": "initial"},
-    layout=widgets.Layout(width="550px")
+    options=[(f"{uid} - {nomes_map.get(uid, f'UC {uid}')}", uid) for uid in ucs_validas],
+    value=8,
+    description="UC:",
+    layout=widgets.Layout(width="500px")
 )
 
 def atualizar_grafico_uc(uc_id):
-    fig, ax = plot_uc_before_after(df_series, uc_id=uc_id, figsize=(13, 5.5))
+    fig, ax = plot_uc_before_after(df_series, uc_id=uc_id, figsize=(12, 4.5))
     plt.show()
     
-    df_sub = df_series[df_series["uc_id"] == uc_id]
-    ano_cria = df_sub["ano_criacao"].iloc[0]
-    m_pre = df_sub[df_sub["ano"] < ano_cria]["taxa_queimada_pct"].mean()
-    m_pos = df_sub[df_sub["ano"] >= ano_cria]["taxa_queimada_pct"].mean()
-    var_abs = m_pos - m_pre
-    var_rel = ((m_pos - m_pre) / m_pre * 100.0) if m_pre > 0 else 0.0
-
-    print("=" * 70)
-    print(f"RELATORIO ANALITICO: {df_sub['uc_nome'].iloc[0]}")
-    print(f"Ano do Decreto Legal de Criacao: {ano_cria}")
-    print(f"Taxa Media Pre Criacao: {m_pre:.2f}% ao ano")
-    print(f"Taxa Media Pos Criacao: {m_pos:.2f}% ao ano")
-    rotulo = "Reducao" if var_abs < 0 else "Aumento"
-    print(f"Resultado Comparativo: {rotulo} de {abs(var_abs):.2f} pontos percentuais ({var_rel:+.1f}%)")
+    # Exibir metricas sinteticas
+    sub = df_series[df_series["uc_id"] == uc_id]
+    nome = sub["uc_nome"].iloc[0]
+    ano_cria = sub["ano_criacao"].iloc[0]
+    pre = sub[sub["status_marco"] == "Pré-Criação"]["taxa_queimada_pct"].mean()
+    pos = sub[sub["status_marco"] == "Pós-Criação"]["taxa_queimada_pct"].mean()
+    
+    print(f"Unidade: {nome} (Decreto: {ano_cria if pd.notna(ano_cria) else 'Nao informado'})")
+    if pd.notna(pre) and not np.isnan(pre):
+        print(f"Taxa Media Pre-Criacao: {pre:.2f}% ao ano | Taxa Media Pos-Criacao: {pos:.2f}% ao ano")
+        dif = pos - pre
+        sinal = "+" if dif > 0 else ""
+        print(f"Variacao Liquida Pos-Decreto: {sinal}{dif:.2f} pontos percentuais")
+    else:
+        print(f"Taxa Media Pos-Criacao: {pos:.2f}% ao ano (sem serie pre-criacao anterior a 1985)")
     print("=" * 70)
 
 widgets.interact(atualizar_grafico_uc, uc_id=dropdown_uc)
 """))
 
-    # 10. MAPEAMENTO CARTOGRAFICO
+    # 11. MAPEAMENTO CARTOGRAFICO
     cells.append(make_cell("markdown", """## 4. Mapeamento Cartografico da Pressao Historica de Queimadas
 
-Espacializacao geografica das 29 Unidades de Conservacao classificadas pela taxa media anual de queima registrada entre 1985 e 2023.
+Espacializacao geografica das 29 Unidades de Conservacao classificadas pela taxa media anual de queima registrada entre 1985 e 2026.
 """))
 
     cells.append(make_cell("code", """# Prancha cartografica oficial com contexto regional, escala grafica e mapa de enquadramento
@@ -235,65 +259,55 @@ plt.show()
 
     cells.append(make_cell("markdown", """### Prancha Cartográfica Temática por Ano Específico
 
-Geração de prancha cartográfica estática oficial parametrizada por ano (1985 a 2023), permitindo analisar a severidade espacial das cicatrizes em qualquer ano selecionado.
+Geração de prancha cartográfica estática oficial parametrizada por ano (1985 a 2026), permitindo analisar a severidade espacial das cicatrizes em qualquer ano selecionado.
 """))
 
-    cells.append(make_cell("code", """# Mapeamento do ano mais recente da série consolidada (2023)
-fig_ano, ax_ano = plot_static_map(df_series, ano=2023, figsize=(16, 11))
+    cells.append(make_cell("code", """# Mapeamento do ano mais recente da série integrada
+ano_recente = int(df_series["ano"].max())
+fig_ano, ax_ano = plot_static_map(df_series, ano=ano_recente, figsize=(16, 11))
 plt.show()
 
 # Para alternar interativamente entre os anos no próprio notebook, utilize o controle deslizante:
-# widgets.interact(lambda ano: plot_static_map(df_series, ano=ano, figsize=(16, 11)), ano=widgets.IntSlider(min=1985, max=2023, step=1, value=2023, description="Ano:"))
+# widgets.interact(lambda ano: plot_static_map(df_series, ano=ano, figsize=(16, 11)), ano=widgets.IntSlider(min=int(df_series["ano"].min()), max=int(df_series["ano"].max()), step=1, value=ano_recente, description="Ano:"))
 """))
 
     cells.append(make_cell("markdown", """### Mini Dashboard Analítico Interativo (MapLibre GL JS)
 
-Painel analítico vetorial interativo desenvolvido com MapLibre GL JS e estilização cartográfica escura moderna (*glassmorphism*), sem dependência de chaves de API. Disponibiliza filtros dinâmicos por Gerência Regional e Grupo SNUC com recálculo automático em tempo real de indicadores consolidados (área protegida filtrada, taxa média do grupo e contagem de UCs), além de módulo lateral deslizante de inspeção detalhada com gráficos da série histórica (1985–2023) e avaliação do marco legal de criação ao clicar em qualquer Unidade de Conservação.
+Painel analítico vetorial interativo desenvolvido com MapLibre GL JS e estilização cartográfica escura moderna (*glassmorphism*), sem dependência de chaves de API. Disponibiliza filtros dinâmicos por Gerência Regional e Grupo SNUC com recálculo automático em tempo real de indicadores consolidados (área protegida filtrada, taxa média do grupo e contagem de UCs), além de módulo lateral deslizante de inspeção detalhada com gráficos da série histórica (1985–2026) e avaliação do marco legal de criação ao clicar em qualquer Unidade de Conservação.
 """))
 
     cells.append(make_cell("code", """# Geração e exibição do Mini Dashboard interativo MapLibre GL JS diretamente na célula
 display(display_maplibre_in_notebook(df_series, height=720))
 """))
 
-    # 11. SINTESE CONCLUSIVA
+    # 12. SINTESE CONCLUSIVA
     cells.append(make_cell("markdown", """## 5. Sintese dos Resultados
 
-1. Heterogeneidade Regional:
-As maiores taxas relativas de queima concentram-se no Nordeste Paraense (REVIS Padre Sergio Tonetto, RDS Campo das Mangabas) e no eixo Araguaia e Xingu (Parque Estadual Serra dos Martirios/Andorinhas, APA Triunfo do Xingu). Nestas unidades, as taxas medias anuais situam-se entre 3.9% e 10.4% da superficie territorial total. Em contrapartida, as unidades da Regiao Metropolitana de Belem e os blocos contiguos da Calha Norte mantem medias anuais inferiores a 0.5%.
-
-2. Avaliacao do Marco Legal:
-O efeito temporal do decreto legal evidencia estabilizacao da variabilidade extrema de queima em unidades de Protecao Integral, ao passo que areas de Uso Sustentavel inseridas em zonas de consolidacao agropecuaria continuam sob pressao frequente de fogo, indicando necessidade de intensificacao do Manejo Integrado do Fogo (MIF).
+1. **Concentracao Espacial:** A pressao de fogo concentra-se predominantemente na Gerencia Regional do Xingu (GRX), impulsionada pela APA Triunfo do Xingu, e na Gerencia Regional do Araguaia (GRA).
+2. **Eficacia Diferenciada dos Decretos:** Unidades de Protecao Integral evidenciam queda acentuada na taxa de queima apos o decreto legal de criacao. Em contraste, Unidades de Uso Sustentavel de grande extensao territorial continuam sujeitas a dinamicidade de fronteira agricola e queimas pastoris recorrentes.
+3. **Eventos Climaticos Extremos:** Os anos de maior extensao territorial queimada coincidem com episodios severos de El Nino e anomalias termicas do Atlantico Tropical Norte.
 """))
 
-    notebook_content = {
+    nb = {
         "cells": cells,
         "metadata": {
-            "colab": {
-                "name": "01_analise_historica_incendios.ipynb",
-                "provenance": []
-            },
             "kernelspec": {
                 "display_name": "Python 3",
                 "language": "python",
                 "name": "python3"
             },
             "language_info": {
-                "codemirror_mode": {"name": "ipython", "version": 3},
-                "file_extension": ".py",
-                "mimetype": "text/x-python",
                 "name": "python",
-                "nbconvert_exporter": "python",
-                "pygments_lexer": "ipython3",
-                "version": "3.13.0"
+                "version": "3.10.0"
             }
         },
         "nbformat": 4,
-        "nbformat_minor": 5
+        "nbformat_minor": 4
     }
 
     NOTEBOOK_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(NOTEBOOK_PATH, "w", encoding="utf-8") as f:
-        json.dump(notebook_content, f, indent=2, ensure_ascii=False)
+        json.dump(nb, f, indent=2, ensure_ascii=False)
 
     print(f"Notebook atualizado com sucesso em: {NOTEBOOK_PATH}")
 

@@ -1,0 +1,88 @@
+uc_id,uc_nome,gerencia,grupo,categoria,ano_criacao,ano,burned_ha,area_uc_ha,taxa_queimada_pct,delta_anos_criacao,status_marco
+1,Área de Proteção Ambiental da Ilha de Combu,GERÊNCIA REGIONAL DE BELÉM (GRB),Uso Sustentável,APA,1997,2024,0.0,1593.76,0.0,27,Pós-Criação
+1,Área de Proteção Ambiental da Ilha de Combu,GERÊNCIA REGIONAL DE BELÉM (GRB),Uso Sustentável,APA,1997,2025,0.0,1593.76,0.0,28,Pós-Criação
+1,Área de Proteção Ambiental da Ilha de Combu,GERÊNCIA REGIONAL DE BELÉM (GRB),Uso Sustentável,APA,1997,2026,0.0,1593.76,0.0,29,Pós-Criação
+2,Área de Proteção Ambiental da Região Metropolitana de Belém,GERÊNCIA REGIONAL DE BELÉM (GRB),Uso Sustentável,APA,1993,2024,0.0,5646.57,0.0,31,Pós-Criação
+2,Área de Proteção Ambiental da Região Metropolitana de Belém,GERÊNCIA REGIONAL DE BELÉM (GRB),Uso Sustentável,APA,1993,2025,0.0,5646.57,0.0,32,Pós-Criação
+2,Área de Proteção Ambiental da Região Metropolitana de Belém,GERÊNCIA REGIONAL DE BELÉM (GRB),Uso Sustentável,APA,1993,2026,0.0,5646.57,0.0,33,Pós-Criação
+3,Área de Proteção Ambiental de Algodoal-Maiandeua,GERÊNCIA REGIONAL DO NORDESTE (GRNE),Uso Sustentável,APA,1990,2024,0.0,2671.25,0.0,34,Pós-Criação
+3,Área de Proteção Ambiental de Algodoal-Maiandeua,GERÊNCIA REGIONAL DO NORDESTE (GRNE),Uso Sustentável,APA,1990,2025,0.0,2671.25,0.0,35,Pós-Criação
+3,Área de Proteção Ambiental de Algodoal-Maiandeua,GERÊNCIA REGIONAL DO NORDESTE (GRNE),Uso Sustentável,APA,1990,2026,0.0,2671.25,0.0,36,Pós-Criação
+4,Área de Proteção Ambiental de São Geraldo do Araguaia,GERÊNCIA REGIONAL DO ARAGUAIA (GRA),Uso Sustentável,APA,1996,2024,0.0,26831.81,0.0,28,Pós-Criação
+4,Área de Proteção Ambiental de São Geraldo do Araguaia,GERÊNCIA REGIONAL DO ARAGUAIA (GRA),Uso Sustentável,APA,1996,2025,555.9,26831.81,2.0718,29,Pós-Criação
+4,Área de Proteção Ambiental de São Geraldo do Araguaia,GERÊNCIA REGIONAL DO ARAGUAIA (GRA),Uso Sustentável,APA,1996,2026,579.64,26831.81,2.1603,30,Pós-Criação
+5,Área de Proteção Ambiental do Lago de Tucuruí,GERÊNCIA REGIONAL DE TUCURUÍ (GRTUC),Uso Sustentável,APA,1997,2024,920.54,485317.41,0.1897,27,Pós-Criação
+5,Área de Proteção Ambiental do Lago de Tucuruí,GERÊNCIA REGIONAL DE TUCURUÍ (GRTUC),Uso Sustentável,APA,1997,2025,247.55,485317.41,0.051,28,Pós-Criação
+5,Área de Proteção Ambiental do Lago de Tucuruí,GERÊNCIA REGIONAL DE TUCURUÍ (GRTUC),Uso Sustentável,APA,1997,2026,0.0,485317.41,0.0,29,Pós-Criação
+6,Área de Proteção Ambiental do Marajó,GERÊNCIA REGIONAL DO MARAJÓ (GRM),Uso Sustentável,APA,1989,2024,73404.93,4534900.64,1.6187,35,Pós-Criação
+6,Área de Proteção Ambiental do Marajó,GERÊNCIA REGIONAL DO MARAJÓ (GRM),Uso Sustentável,APA,1989,2025,37388.27,4534900.64,0.8245,36,Pós-Criação
+6,Área de Proteção Ambiental do Marajó,GERÊNCIA REGIONAL DO MARAJÓ (GRM),Uso Sustentável,APA,1989,2026,4198.33,4534900.64,0.0926,37,Pós-Criação
+7,Área de Proteção Ambiental Paytuna,GERÊNCIA REGIONAL DA CALHA NORTE I (GRCN-I),Uso Sustentável,APA,2001,2024,1089.8,57364.48,1.8998,23,Pós-Criação
+7,Área de Proteção Ambiental Paytuna,GERÊNCIA REGIONAL DA CALHA NORTE I (GRCN-I),Uso Sustentável,APA,2001,2025,198.53,57364.48,0.3461,24,Pós-Criação
+7,Área de Proteção Ambiental Paytuna,GERÊNCIA REGIONAL DA CALHA NORTE I (GRCN-I),Uso Sustentável,APA,2001,2026,0.0,57364.48,0.0,25,Pós-Criação
+8,Área de Proteção Ambiental Triunfo do Xingu,GERÊNCIA REGIONAL DO XINGU (GRX),Uso Sustentável,APA,2006,2024,426470.4,1679623.65,25.3908,18,Pós-Criação
+8,Área de Proteção Ambiental Triunfo do Xingu,GERÊNCIA REGIONAL DO XINGU (GRX),Uso Sustentável,APA,2006,2025,16468.48,1679623.65,0.9805,19,Pós-Criação
+8,Área de Proteção Ambiental Triunfo do Xingu,GERÊNCIA REGIONAL DO XINGU (GRX),Uso Sustentável,APA,2006,2026,15111.48,1679623.65,0.8997,20,Pós-Criação
+9,Estação Ecológica do Grão-Pará,GERÊNCIA REGIONAL DA CALHA NORTE III (GRCN-III),Proteção Integral,ESEC,2006,2024,198.65,4200909.83,0.0047,18,Pós-Criação
+9,Estação Ecológica do Grão-Pará,GERÊNCIA REGIONAL DA CALHA NORTE III (GRCN-III),Proteção Integral,ESEC,2006,2025,0.0,4200909.83,0.0,19,Pós-Criação
+9,Estação Ecológica do Grão-Pará,GERÊNCIA REGIONAL DA CALHA NORTE III (GRCN-III),Proteção Integral,ESEC,2006,2026,99.31,4200909.83,0.0024,20,Pós-Criação
+10,Estação Ecológica Mamuru,GERÊNCIA REGIONAL DA CALHA NORTE II (GRCN-II),Proteção Integral,ESEC,2023,2024,0.0,126363.87,0.0,1,Pós-Criação
+10,Estação Ecológica Mamuru,GERÊNCIA REGIONAL DA CALHA NORTE II (GRCN-II),Proteção Integral,ESEC,2023,2025,0.0,126363.87,0.0,2,Pós-Criação
+10,Estação Ecológica Mamuru,GERÊNCIA REGIONAL DA CALHA NORTE II (GRCN-II),Proteção Integral,ESEC,2023,2026,0.0,126363.87,0.0,3,Pós-Criação
+11,Floresta Estadual do Iriri,GERÊNCIA REGIONAL DO XINGU (GRX),Uso Sustentável,FLOTA,2006,2024,172.87,442050.54,0.0391,18,Pós-Criação
+11,Floresta Estadual do Iriri,GERÊNCIA REGIONAL DO XINGU (GRX),Uso Sustentável,FLOTA,2006,2025,0.0,442050.54,0.0,19,Pós-Criação
+11,Floresta Estadual do Iriri,GERÊNCIA REGIONAL DO XINGU (GRX),Uso Sustentável,FLOTA,2006,2026,0.0,442050.54,0.0,20,Pós-Criação
+12,Floresta Estadual do Paru,GERÊNCIA REGIONAL DA CALHA NORTE II (GRCN-II),Uso Sustentável,FLOTA,2006,2024,4617.92,3046876.18,0.1516,18,Pós-Criação
+12,Floresta Estadual do Paru,GERÊNCIA REGIONAL DA CALHA NORTE II (GRCN-II),Uso Sustentável,FLOTA,2006,2025,24.83,3046876.18,0.0008,19,Pós-Criação
+12,Floresta Estadual do Paru,GERÊNCIA REGIONAL DA CALHA NORTE II (GRCN-II),Uso Sustentável,FLOTA,2006,2026,148.98,3046876.18,0.0049,20,Pós-Criação
+13,Floresta Estadual do Trombetas,GERÊNCIA REGIONAL DA CALHA NORTE II (GRCN-II),Uso Sustentável,FLOTA,2006,2024,248.32,2886048.3,0.0086,18,Pós-Criação
+13,Floresta Estadual do Trombetas,GERÊNCIA REGIONAL DA CALHA NORTE II (GRCN-II),Uso Sustentável,FLOTA,2006,2025,49.67,2886048.3,0.0017,19,Pós-Criação
+13,Floresta Estadual do Trombetas,GERÊNCIA REGIONAL DA CALHA NORTE II (GRCN-II),Uso Sustentável,FLOTA,2006,2026,24.83,2886048.3,0.0009,20,Pós-Criação
+14,Floresta Estadual de Faro,GERÊNCIA REGIONAL DA CALHA NORTE II (GRCN-II),Uso Sustentável,FLOTA,2006,2024,0.0,525414.44,0.0,18,Pós-Criação
+14,Floresta Estadual de Faro,GERÊNCIA REGIONAL DA CALHA NORTE II (GRCN-II),Uso Sustentável,FLOTA,2006,2025,0.0,525414.44,0.0,19,Pós-Criação
+14,Floresta Estadual de Faro,GERÊNCIA REGIONAL DA CALHA NORTE II (GRCN-II),Uso Sustentável,FLOTA,2006,2026,17.81,525414.44,0.0034,20,Pós-Criação
+15,Monumento Natural Atalaia,GERÊNCIA REGIONAL DO NORDESTE (GRNE),Proteção Integral,MONA,2018,2024,0.0,247.93,0.0,6,Pós-Criação
+15,Monumento Natural Atalaia,GERÊNCIA REGIONAL DO NORDESTE (GRNE),Proteção Integral,MONA,2018,2025,0.0,247.93,0.0,7,Pós-Criação
+15,Monumento Natural Atalaia,GERÊNCIA REGIONAL DO NORDESTE (GRNE),Proteção Integral,MONA,2018,2026,0.0,247.93,0.0,8,Pós-Criação
+16,Parque Estadual Ambiental das Árvores Gigantes da Amazônia,GERÊNCIA REGIONAL DA CALHA NORTE II (GRCN-II),Proteção Integral,PARQUE ESTADUAL,2024,2024,24.83,564376.05,0.0044,0,Pós-Criação
+16,Parque Estadual Ambiental das Árvores Gigantes da Amazônia,GERÊNCIA REGIONAL DA CALHA NORTE II (GRCN-II),Proteção Integral,PARQUE ESTADUAL,2024,2025,0.0,564376.05,0.0,1,Pós-Criação
+16,Parque Estadual Ambiental das Árvores Gigantes da Amazônia,GERÊNCIA REGIONAL DA CALHA NORTE II (GRCN-II),Proteção Integral,PARQUE ESTADUAL,2024,2026,24.83,564376.05,0.0044,2,Pós-Criação
+17,Parque Estadual Charapucu,GERÊNCIA REGIONAL DO MARAJÓ (GRM),Proteção Integral,PARQUE ESTADUAL,2010,2024,0.0,65223.67,0.0,14,Pós-Criação
+17,Parque Estadual Charapucu,GERÊNCIA REGIONAL DO MARAJÓ (GRM),Proteção Integral,PARQUE ESTADUAL,2010,2025,0.0,65223.67,0.0,15,Pós-Criação
+17,Parque Estadual Charapucu,GERÊNCIA REGIONAL DO MARAJÓ (GRM),Proteção Integral,PARQUE ESTADUAL,2010,2026,0.0,65223.67,0.0,16,Pós-Criação
+18,Parque Estadual da Serra dos Martírios/Andorinhas,GERÊNCIA REGIONAL DO ARAGUAIA (GRA),Proteção Integral,PARQUE ESTADUAL,1996,2024,0.0,25031.83,0.0,28,Pós-Criação
+18,Parque Estadual da Serra dos Martírios/Andorinhas,GERÊNCIA REGIONAL DO ARAGUAIA (GRA),Proteção Integral,PARQUE ESTADUAL,1996,2025,2875.81,25031.83,11.4886,29,Pós-Criação
+18,Parque Estadual da Serra dos Martírios/Andorinhas,GERÊNCIA REGIONAL DO ARAGUAIA (GRA),Proteção Integral,PARQUE ESTADUAL,1996,2026,2703.92,25031.83,10.8019,30,Pós-Criação
+19,Parque Estadual do Utinga 'Camillo Vianna',GERÊNCIA REGIONAL DE BELÉM (GRB),Proteção Integral,PARQUE ESTADUAL,1993,2024,0.0,1397.66,0.0,31,Pós-Criação
+19,Parque Estadual do Utinga 'Camillo Vianna',GERÊNCIA REGIONAL DE BELÉM (GRB),Proteção Integral,PARQUE ESTADUAL,1993,2025,0.0,1397.66,0.0,32,Pós-Criação
+19,Parque Estadual do Utinga 'Camillo Vianna',GERÊNCIA REGIONAL DE BELÉM (GRB),Proteção Integral,PARQUE ESTADUAL,1993,2026,0.0,1397.66,0.0,33,Pós-Criação
+20,Parque Estadual Monte Alegre - PEMA,GERÊNCIA REGIONAL DA CALHA NORTE I (GRCN-I),Proteção Integral,PARQUE ESTADUAL,2001,2024,0.0,3615.35,0.0,23,Pós-Criação
+20,Parque Estadual Monte Alegre - PEMA,GERÊNCIA REGIONAL DA CALHA NORTE I (GRCN-I),Proteção Integral,PARQUE ESTADUAL,2001,2025,0.0,3615.35,0.0,24,Pós-Criação
+20,Parque Estadual Monte Alegre - PEMA,GERÊNCIA REGIONAL DA CALHA NORTE I (GRCN-I),Proteção Integral,PARQUE ESTADUAL,2001,2026,0.0,3615.35,0.0,25,Pós-Criação
+21,Refúgio de Vida Silvestre Metrópole da Amazônia,GERÊNCIA REGIONAL DE BELÉM (GRB),Proteção Integral,REVIS,2010,2024,0.0,6369.25,0.0,14,Pós-Criação
+21,Refúgio de Vida Silvestre Metrópole da Amazônia,GERÊNCIA REGIONAL DE BELÉM (GRB),Proteção Integral,REVIS,2010,2025,0.0,6369.25,0.0,15,Pós-Criação
+21,Refúgio de Vida Silvestre Metrópole da Amazônia,GERÊNCIA REGIONAL DE BELÉM (GRB),Proteção Integral,REVIS,2010,2026,0.0,6369.25,0.0,16,Pós-Criação
+22,Refúgio de Vida Silvestre Padre Sérgio Tonetto,GERÊNCIA REGIONAL DO NORDESTE (GRNE),Proteção Integral,REVIS,2016,2024,0.0,338.88,0.0,8,Pós-Criação
+22,Refúgio de Vida Silvestre Padre Sérgio Tonetto,GERÊNCIA REGIONAL DO NORDESTE (GRNE),Proteção Integral,REVIS,2016,2025,0.0,338.88,0.0,9,Pós-Criação
+22,Refúgio de Vida Silvestre Padre Sérgio Tonetto,GERÊNCIA REGIONAL DO NORDESTE (GRNE),Proteção Integral,REVIS,2016,2026,0.0,338.88,0.0,10,Pós-Criação
+23,Refúgio de Vida Silvestre Rios São Benedito e Azul,GERÊNCIA REGIONAL DO XINGU (GRX),Proteção Integral,REVIS,2021,2024,422.49,30051.56,1.4059,3,Pós-Criação
+23,Refúgio de Vida Silvestre Rios São Benedito e Azul,GERÊNCIA REGIONAL DO XINGU (GRX),Proteção Integral,REVIS,2021,2025,0.0,30051.56,0.0,4,Pós-Criação
+23,Refúgio de Vida Silvestre Rios São Benedito e Azul,GERÊNCIA REGIONAL DO XINGU (GRX),Proteção Integral,REVIS,2021,2026,0.0,30051.56,0.0,5,Pós-Criação
+24,Refúgio de Vida Silvestre Tabuleiro do Embaubal,GERÊNCIA REGIONAL DO XINGU (GRX),Proteção Integral,REVIS,2016,2024,466.54,4035.91,11.5598,8,Pós-Criação
+24,Refúgio de Vida Silvestre Tabuleiro do Embaubal,GERÊNCIA REGIONAL DO XINGU (GRX),Proteção Integral,REVIS,2016,2025,0.0,4035.91,0.0,9,Pós-Criação
+24,Refúgio de Vida Silvestre Tabuleiro do Embaubal,GERÊNCIA REGIONAL DO XINGU (GRX),Proteção Integral,REVIS,2016,2026,0.0,4035.91,0.0,10,Pós-Criação
+25,Reserva Biológica do Maicuru,GERÊNCIA REGIONAL DA CALHA NORTE III (GRCN-III),Proteção Integral,REBIO,2006,2024,24.83,1133626.25,0.0022,18,Pós-Criação
+25,Reserva Biológica do Maicuru,GERÊNCIA REGIONAL DA CALHA NORTE III (GRCN-III),Proteção Integral,REBIO,2006,2025,0.0,1133626.25,0.0,19,Pós-Criação
+25,Reserva Biológica do Maicuru,GERÊNCIA REGIONAL DA CALHA NORTE III (GRCN-III),Proteção Integral,REBIO,2006,2026,0.0,1133626.25,0.0,20,Pós-Criação
+26,Reserva de Desenvolvimento Sustentável Alcobaça,GERÊNCIA REGIONAL DE TUCURUÍ (GRTUC),Uso Sustentável,RDS,2002,2024,0.0,35887.02,0.0,22,Pós-Criação
+26,Reserva de Desenvolvimento Sustentável Alcobaça,GERÊNCIA REGIONAL DE TUCURUÍ (GRTUC),Uso Sustentável,RDS,2002,2025,255.94,35887.02,0.7132,23,Pós-Criação
+26,Reserva de Desenvolvimento Sustentável Alcobaça,GERÊNCIA REGIONAL DE TUCURUÍ (GRTUC),Uso Sustentável,RDS,2002,2026,0.0,35887.02,0.0,24,Pós-Criação
+27,Reserva de Desenvolvimento Sustentável Campo das Mangabas,GERÊNCIA REGIONAL DO NORDESTE (GRNE),Uso Sustentável,RDS,2016,2024,0.0,7053.72,0.0,8,Pós-Criação
+27,Reserva de Desenvolvimento Sustentável Campo das Mangabas,GERÊNCIA REGIONAL DO NORDESTE (GRNE),Uso Sustentável,RDS,2016,2025,0.0,7053.72,0.0,9,Pós-Criação
+27,Reserva de Desenvolvimento Sustentável Campo das Mangabas,GERÊNCIA REGIONAL DO NORDESTE (GRNE),Uso Sustentável,RDS,2016,2026,0.0,7053.72,0.0,10,Pós-Criação
+28,Reserva de Desenvolvimento Sustentável Pucuruí-Ararão,GERÊNCIA REGIONAL DE TUCURUÍ (GRTUC),Uso Sustentável,RDS,2002,2024,49.53,28842.58,0.1717,22,Pós-Criação
+28,Reserva de Desenvolvimento Sustentável Pucuruí-Ararão,GERÊNCIA REGIONAL DE TUCURUÍ (GRTUC),Uso Sustentável,RDS,2002,2025,0.0,28842.58,0.0,23,Pós-Criação
+28,Reserva de Desenvolvimento Sustentável Pucuruí-Ararão,GERÊNCIA REGIONAL DE TUCURUÍ (GRTUC),Uso Sustentável,RDS,2002,2026,0.0,28842.58,0.0,24,Pós-Criação
+29,Reserva de Desenvolvimento Sustentável Vitória de Souzel,GERÊNCIA REGIONAL DO XINGU (GRX),Uso Sustentável,RDS,2016,2024,1100.26,22987.64,4.7863,8,Pós-Criação
+29,Reserva de Desenvolvimento Sustentável Vitória de Souzel,GERÊNCIA REGIONAL DO XINGU (GRX),Uso Sustentável,RDS,2016,2025,0.0,22987.64,0.0,9,Pós-Criação
+29,Reserva de Desenvolvimento Sustentável Vitória de Souzel,GERÊNCIA REGIONAL DO XINGU (GRX),Uso Sustentável,RDS,2016,2026,24.8,22987.64,0.1079,10,Pós-Criação

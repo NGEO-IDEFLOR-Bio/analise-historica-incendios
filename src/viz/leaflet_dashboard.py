@@ -507,7 +507,7 @@ def create_interactive_leaflet_dashboard(
     <div class="mini-chart-box">
       <div class="mini-chart-title">
         <span>Evolução Anual Média (%)</span>
-        <span style="font-size: 8.5px; color: #64748B;">1985–2023</span>
+        <span style="font-size: 8.5px; color: #64748B;">{min(geral_anos)} a {max(geral_anos)}</span>
       </div>
       <div class="chart-container-panel">
         <canvas id="group-chart-canvas"></canvas>
