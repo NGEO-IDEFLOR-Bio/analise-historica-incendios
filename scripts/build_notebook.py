@@ -229,17 +229,17 @@ Espacializacao geografica das 29 Unidades de Conservacao classificadas pela taxa
 """))
 
     cells.append(make_cell("code", """# Prancha cartografica oficial com contexto regional, escala grafica e mapa de enquadramento
-fig, ax = plot_static_map(df_series, figsize=(15, 11))
+fig, ax = plot_static_map(df_series, figsize=(16, 11))
 plt.show()
 """))
 
-    cells.append(make_cell("markdown", """### Mapa Interativo Vetorial (MapLibre GL JS)
+    cells.append(make_cell("markdown", """### Mini Dashboard Analitico Interativo (MapLibre GL JS)
 
-Navegacao interativa com renderizacao acelerada por hardware via MapLibre GL JS, isenta das politicas de bloqueio de servidores publicos de tiles. A ferramenta permite aproximacao, rotacao tridimensional e inspecao direta dos indicadores de cada poligono.
+Painel analitico vetorial interativo desenvolvido com MapLibre GL JS, sem restricao de chaves de API. Disponibiliza filtros dinamicos por Gerencia Regional e Grupo SNUC com recalculacao automatica de indicadores consolidados, alem de modulo de inspecao analitica detalhada da serie historica anual (1985 a 2023) e impacto do marco legal ao clicar em qualquer Unidade de Conservacao.
 """))
 
-    cells.append(make_cell("code", """# Geracao e exibicao do mapa interativo MapLibre GL JS diretamente na celula
-display(display_maplibre_in_notebook(df_series, height=650))
+    cells.append(make_cell("code", """# Geracao e exibicao do Mini Dashboard interativo MapLibre GL JS diretamente na celula
+display(display_maplibre_in_notebook(df_series, height=720))
 """))
 
     # 11. SINTESE CONCLUSIVA

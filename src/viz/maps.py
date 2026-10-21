@@ -7,8 +7,9 @@ Padronizado no layout cartografico oficial do NGEO/IDEFLOR-Bio (Prancha Paisagem
   * Painel de Enquadramento Geografico / Localizacao
   * Painel de Legenda Tematica estruturada
   * Carimbo Institucional (Metadados, Data, Projecao e Creditos)
-- Mapa Interativo baseado em MapLibre GL JS com filtros funcionais por Gerencia Regional,
-  Grupo SNUC e slider temporal, sem dependencia de chaves pagas de tiles.
+- Dashboard Interativo baseado em MapLibre GL JS com filtros por Gerencia Regional,
+  Grupo SNUC, inspecao temporal individualizada com graficos interativos 1985 a 2023,
+  sem dependencia de chaves pagas de tiles.
 """
 from typing import Optional, Dict, Any, Tuple
 from pathlib import Path
@@ -16,10 +17,9 @@ import json
 import numpy as np
 import pandas as pd
 import geopandas as gpd
+from shapely.geometry import mapping
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-import matplotlib.colors as mcolors
-import matplotlib.gridspec as gridspec
 
 from src.config import (
     GEOJSON_UCS,
@@ -28,8 +28,8 @@ from src.config import (
     GEOJSON_AMERICA_DO_SUL_SIMP,
     GEOJSON_BRASIL_UFS,
     GEOJSON_AMERICA_DO_SUL,
-    DATA_OUTPUT,
-    SIGLAS_GERENCIAS
+    CSV_METADATA_UCS,
+    DATA_OUTPUT
 )
 from src.viz.theme import apply_ggplot_theme
 
@@ -64,13 +64,13 @@ def plot_static_map(
     save_path: Optional[Path] = None
 ) -> Tuple[plt.Figure, Any]:
     """
-    Gera prancha cartografica oficial no padrao institucional NGEO/IDEFLOR-Bio:
+    Gera prancha cartografica oficial no padrao institucional do NGEO / IDEFLOR-Bio:
+    - Borda externa perimetral (neatline)
     - Cabecalho horizontal superior (titulo institucional)
     - Painel principal esquerdo (mapa tematico com grade, limites e UCs)
     - Coluna lateral direita:
       * Painel superior: Enquadramento geografico (America do Sul, Brasil e Para)
-      * Painel intermediario: Legenda tematica estruturada com classes de queima
-      * Painel inferior: Carimbo oficial (dados tecnicos, datum, projecao e autoria)
+      * Painel inferior: Legenda tematica estruturada com classes de queima e Carimbo Oficial
     """
     apply_ggplot_theme()
 
@@ -89,42 +89,44 @@ def plot_static_map(
     ).reset_index()
     gdf_ucs = gdf_ucs.merge(uc_stats, left_on="id", right_on="uc_id", how="left")
 
-    # Layout estruturado em grade: 1 linha de cabecalho + 2 linhas de mapa / coluna
     fig = plt.figure(figsize=figsize, facecolor="#FFFFFF")
-    gs = gridspec.GridSpec(
-        3, 2,
-        width_ratios=[0.72, 0.28],
-        height_ratios=[0.065, 0.45, 0.485],
-        wspace=0.012, hspace=0.015,
-        left=0.015, right=0.985, top=0.975, bottom=0.025
+
+    # Borda externa geral (neatline)
+    neatline = patches.Rectangle(
+        (0.012, 0.012), 0.976, 0.976,
+        transform=fig.transFigure,
+        fill=False, edgecolor="#000000", linewidth=1.5
     )
+    fig.patches.append(neatline)
+
+    # Paineis calibrados com distanciamento milimetrico anti-sobreposicao
+    ax_head = fig.add_axes([0.022, 0.908, 0.956, 0.068])
+    ax_main = fig.add_axes([0.065, 0.038, 0.635, 0.852])
+    ax_inset = fig.add_axes([0.718, 0.535, 0.260, 0.355])
+    ax_side = fig.add_axes([0.718, 0.038, 0.260, 0.480])
+
+    for ax in [ax_head, ax_main, ax_inset, ax_side]:
+        for spine in ax.spines.values():
+            spine.set_color("#000000")
+            spine.set_linewidth(1.3)
 
     # 1. CABECALHO SUPERIOR (TITULO DO MAPA)
-    ax_head = fig.add_subplot(gs[0, :])
     ax_head.set_facecolor("#FFFFFF")
-    for spine in ax_head.spines.values():
-        spine.set_color("#000000")
-        spine.set_linewidth(1.5)
     ax_head.set_xticks([])
     ax_head.set_yticks([])
     ax_head.text(
-        0.5, 0.58,
+        0.5, 0.60,
         "UNIDADES DE CONSERVAÇÃO ESTADUAIS",
         fontsize=15.0, fontweight="bold", color="#000000", ha="center", va="center"
     )
     ax_head.text(
-        0.5, 0.22,
-        "Distribuicao Geografica e Taxa Media Historica de Cicatrizes de Queimada (1985 a 2023)",
+        0.5, 0.25,
+        "Distribuição Geográfica e Taxa Média Histórica de Cicatrizes de Queimada (1985 a 2023)",
         fontsize=9.8, color="#334155", ha="center", va="center"
     )
 
     # 2. PAINEL PRINCIPAL (MAPA DO PARA E UCS)
-    ax_main = fig.add_subplot(gs[1:, 0])
     ax_main.set_facecolor("#E0F2FE")  # Oceano Atlantico
-    for spine in ax_main.spines.values():
-        spine.set_color("#000000")
-        spine.set_linewidth(1.5)
-
     xlim = (-59.2, -45.6)
     ylim = (-10.4, 3.2)
     ax_main.set_xlim(xlim)
@@ -137,11 +139,11 @@ def plot_static_map(
 
     # Cores discretizadas em classes para precisao cartografica
     classes_cores = [
-        {"min": 0.0, "max": 0.5, "cor": "#FFFFB2", "label": "0,00% a 0,50% (Baixissima pressao)"},
-        {"min": 0.5, "max": 2.0, "cor": "#FECC5C", "label": "0,51% a 2,00% (Baixa pressao)"},
-        {"min": 2.0, "max": 4.0, "cor": "#FD8D3C", "label": "2,01% a 4,00% (Moderada pressao)"},
-        {"min": 4.0, "max": 7.0, "cor": "#F03B20", "label": "4,01% a 7,00% (Alta pressao)"},
-        {"min": 7.0, "max": 100.0, "cor": "#BD0026", "label": "Acima de 7,00% (Pressao critica)"}
+        {"min": 0.0, "max": 0.5, "cor": "#FFFFB2", "label": "0,00% a 0,50% (Baixíssima pressão)"},
+        {"min": 0.5, "max": 2.0, "cor": "#FECC5C", "label": "0,51% a 2,00% (Baixa pressão)"},
+        {"min": 2.0, "max": 4.0, "cor": "#FD8D3C", "label": "2,01% a 4,00% (Moderada pressão)"},
+        {"min": 4.0, "max": 7.0, "cor": "#F03B20", "label": "4,01% a 7,00% (Alta pressão)"},
+        {"min": 7.0, "max": 100.0, "cor": "#BD0026", "label": "Acima de 7,00% (Pressão crítica)"}
     ]
 
     for cl in classes_cores:
@@ -185,20 +187,13 @@ def plot_static_map(
     ax_main.set_xticklabels([f"{abs(int(x))}°0'0\"W" for x in x_ticks], fontsize=8, color="#000000")
     ax_main.set_yticklabels([f"{int(y)}°0'0\"N" if y > 0 else (f"{abs(int(y))}°0'0\"S" if y < 0 else "0°0'0\"") for y in y_ticks], fontsize=8, color="#000000")
     ax_main.grid(True, linestyle=":", color="#64748B", alpha=0.45, zorder=5)
-    ax_main.set_xlabel("")
-    ax_main.set_ylabel("")
 
     # Rosa dos ventos e escala grafica no painel principal
     _draw_north_arrow(ax_main, x=-47.0, y=2.2, size=0.65)
     _draw_scale_bar(ax_main, x0=-57.8, y0=-9.2, length_km=300.0, lat_ref=-4.0)
 
     # 3. COLUNA DIREITA - PAINEL SUPERIOR: ENQUADRAMENTO GEOGRAFICO
-    ax_inset = fig.add_subplot(gs[1, 1])
     ax_inset.set_facecolor("#E0F2FE")
-    for spine in ax_inset.spines.values():
-        spine.set_color("#000000")
-        spine.set_linewidth(1.5)
-
     gdf_sa.plot(ax=ax_inset, facecolor="#F1F5F9", edgecolor="#CBD5E1", linewidth=0.4)
     gdf_ufs.plot(ax=ax_inset, facecolor="#E2E8F0", edgecolor="#CBD5E1", linewidth=0.3)
     gdf_para.plot(ax=ax_inset, facecolor="#000000", edgecolor="#000000", linewidth=1.0)
@@ -212,10 +207,7 @@ def plot_static_map(
     ax_inset.set_ylim(-56, 14)
     ax_inset.set_xticks([])
     ax_inset.set_yticks([])
-    ax_inset.set_xlabel("")
-    ax_inset.set_ylabel("")
 
-    # Rotulos no mapa de enquadramento
     ax_inset.text(-60, 5, "América do Sul", fontsize=8.5, fontstyle="italic", color="#334155")
     ax_inset.text(-40, 0, "Oceano\nAtlântico", fontsize=8.5, fontstyle="italic", color="#0284C7", ha="center")
     ax_inset.text(-52, -4, "PA", fontsize=9, fontweight="bold", color="#FFFFFF", ha="center")
@@ -227,11 +219,7 @@ def plot_static_map(
     ax_inset.text(-61, 2, "RR", fontsize=7.5, color="#64748B")
 
     # 4. COLUNA DIREITA - PAINEL INFERIOR: LEGENDA E CARIMBO INSTITUCIONAL
-    ax_side = fig.add_subplot(gs[2, 1])
     ax_side.set_facecolor("#FFFFFF")
-    for spine in ax_side.spines.values():
-        spine.set_color("#000000")
-        spine.set_linewidth(1.5)
     ax_side.set_xticks([])
     ax_side.set_yticks([])
 
@@ -242,7 +230,6 @@ def plot_static_map(
     ax_side.text(0.06, 0.94, "LEGENDA", fontsize=11, fontweight="bold", color="#000000", va="top")
 
     y_leg = 0.86
-    # Limite Estadual
     rect_pa = patches.Rectangle((0.06, y_leg - 0.015), 0.08, 0.03, facecolor="#FFFFFF", edgecolor="#000000", linewidth=1.6)
     ax_side.add_patch(rect_pa)
     ax_side.text(0.18, y_leg, "Limite Estadual do Pará", fontsize=8.5, va="center", color="#000000")
@@ -257,10 +244,11 @@ def plot_static_map(
         ax_side.text(0.18, y_leg, cl["label"], fontsize=8.2, va="center", color="#000000")
 
     # 4.2. CARIMBO TECNICO / INSTITUCIONAL (RODAPE LATERAL)
+    # Vinculacao oficial: NGEO e setor independente vinculado diretamente ao Gabinete da Presidencia!
     ax_side.text(0.06, 0.33, "Núcleo de Geotecnologias (NGEO)", fontsize=9.5, fontweight="bold", color="#000000")
-    ax_side.text(0.06, 0.28, "Diretoria de Gestão e Monitoramento de UCs (DGBIO)", fontsize=8.5, color="#1E293B")
+    ax_side.text(0.06, 0.28, "Gabinete da Presidência", fontsize=8.5, fontweight="bold", color="#1E293B")
     ax_side.text(0.06, 0.23, "Instituto de Desenvolvimento Florestal e da Biodiversidade", fontsize=8.0, color="#475569")
-    
+
     info_text = (
         "Base Territorial: 29 UCs Estaduais Oficiais\n"
         "Fonte do Regime de Fogo: MapBiomas Fogo (Coleção 3 - 30m)\n"
@@ -271,7 +259,7 @@ def plot_static_map(
     ax_side.text(0.06, 0.04, info_text, fontsize=7.8, color="#334155", va="bottom", linespacing=1.35)
 
     if save_path:
-        fig.savefig(save_path, dpi=300, facecolor=fig.get_facecolor(), bbox_inches="tight")
+        fig.savefig(save_path, dpi=300, facecolor="#FFFFFF", pad_inches=0.1, bbox_inches="tight")
         print(f"Prancha cartografica oficial salva com sucesso em: {save_path}")
 
     return fig, ax_main
@@ -282,83 +270,156 @@ def create_interactive_maplibre_map(
     output_path: Optional[Path] = None
 ) -> str:
     """
-    Gera mapa interativo de alta capacidade analitica com MapLibre GL JS:
-    - Utiliza camada de relevo/satelite mundial da Esri (completamente livre de chaves ou bloqueios)
-    - Painel lateral de controle interativo:
-      * Filtro dinamico por Gerencia Regional (GRB, GRNE, GRX, GRCN, etc.)
-      * Filtro por Grupo SNUC (Protecao Integral vs. Uso Sustentavel)
-      * Filtro por faixa de taxa de queima
-    - Quadro de resumo analitico dinamico (recalcula area total e queima media dos poligonos visiveis)
-    - Tooltip rica com dados da serie temporal completa
+    Gera Mini Dashboard analitico interativo de alta performance com MapLibre GL JS:
+    - Base de dados geografica otimizada em 2D WGS84 (< 450 KB payload total)
+    - Camadas de satelite e cartografia mundial da Esri (sem limites de chaves ou bloqueios)
+    - Painel lateral esquerdo com filtros dinamicos (Gerencia Regional, Grupo SNUC) e KPIs consolidados
+    - Painel lateral direito de inspecao analitica detalhada da UC selecionada:
+      * Metadados cadastrais, categoria, gerencia e area oficial
+      * Comparativo pre vs. pos criacao com calculo de impacto
+      * Grafico Canvas interativo da evolucao anual 1985 a 2023 com tooltips e marco legal
     """
-    with open(GEOJSON_UCS, "r", encoding="utf-8") as f:
-        geo_ucs = json.load(f)
+    df_meta = pd.read_csv(CSV_METADATA_UCS)
+    gdf_ucs = gpd.read_file(GEOJSON_UCS)
+    gdf_para = gpd.read_file(GEOJSON_PARA)
 
-    with open(GEOJSON_PARA, "r", encoding="utf-8") as f:
-        geo_para = json.load(f)
+    gdf_ucs_simp = gdf_ucs.copy()
+    gdf_ucs_simp["geometry"] = gdf_ucs_simp["geometry"].simplify(0.003, preserve_topology=True)
+    gdf_para_simp = gdf_para.copy()
+    gdf_para_simp["geometry"] = gdf_para_simp["geometry"].simplify(0.008, preserve_topology=True)
 
-    uc_stats = df_series.groupby("uc_id").agg(
-        taxa_media_pct=("taxa_queimada_pct", "mean"),
-        taxa_max_pct=("taxa_queimada_pct", "max"),
-        burned_ha_total=("burned_ha", "sum")
-    ).reset_index()
-    stats_map = {int(row["uc_id"]): row for _, row in uc_stats.iterrows()}
+    series_by_uc = {}
+    for uid, group in df_series.groupby("uc_id"):
+        uid = int(uid)
+        meta_row = df_meta[df_meta["id"] == uid]
+        ano_criacao = int(meta_row["ano_criacao"].values[0]) if not meta_row.empty and not pd.isna(meta_row["ano_criacao"].values[0]) else None
 
-    for feat in geo_ucs["features"]:
-        uid = feat["properties"].get("id")
-        stat = stats_map.get(uid)
-        if stat is not None:
-            feat["properties"]["taxa_media_pct"] = round(float(stat["taxa_media_pct"]), 2)
-            feat["properties"]["taxa_max_pct"] = round(float(stat["taxa_max_pct"]), 2)
-            feat["properties"]["burned_ha_total"] = round(float(stat["burned_ha_total"]), 1)
+        grp_sorted = group.sort_values("ano")
+        anos = [int(a) for a in grp_sorted["ano"].tolist()]
+        taxas = [round(float(v), 2) for v in grp_sorted["taxa_queimada_pct"].tolist()]
+        burned_ha = [round(float(v), 1) for v in grp_sorted["burned_ha"].tolist()]
+
+        if ano_criacao:
+            pre_grp = grp_sorted[grp_sorted["ano"] < ano_criacao]
+            pos_grp = grp_sorted[grp_sorted["ano"] >= ano_criacao]
+            taxa_pre = round(float(pre_grp["taxa_queimada_pct"].mean()), 2) if not pre_grp.empty else None
+            taxa_pos = round(float(pos_grp["taxa_queimada_pct"].mean()), 2) if not pos_grp.empty else None
         else:
-            feat["properties"]["taxa_media_pct"] = 0.0
-            feat["properties"]["taxa_max_pct"] = 0.0
-            feat["properties"]["burned_ha_total"] = 0.0
+            taxa_pre = None
+            taxa_pos = None
 
-    geo_ucs_json_str = json.dumps(geo_ucs, ensure_ascii=False)
-    geo_para_json_str = json.dumps(geo_para, ensure_ascii=False)
+        idx_max = grp_sorted["taxa_queimada_pct"].idxmax()
+        row_max = grp_sorted.loc[idx_max]
+
+        series_by_uc[uid] = {
+            "anos": anos,
+            "taxas": taxas,
+            "ha": burned_ha,
+            "taxa_pre": taxa_pre,
+            "taxa_pos": taxa_pos,
+            "pico_ano": int(row_max["ano"]),
+            "pico_taxa": round(float(row_max["taxa_queimada_pct"]), 2),
+            "burned_ha_total": round(float(grp_sorted["burned_ha"].sum()), 1),
+            "taxa_media": round(float(grp_sorted["taxa_queimada_pct"].mean()), 2)
+        }
+
+    ucs_features = []
+    for _, row in gdf_ucs_simp.iterrows():
+        uid = int(row["id"])
+        meta = df_meta[df_meta["id"] == uid]
+        st = series_by_uc.get(uid, {})
+
+        geom_2d = json.loads(json.dumps(mapping(row["geometry"])))
+        def strip_z(coords):
+            if isinstance(coords[0], (int, float)):
+                return [round(coords[0], 5), round(coords[1], 5)]
+            return [strip_z(c) for c in coords]
+        geom_2d["coordinates"] = strip_z(geom_2d["coordinates"])
+
+        props = {
+            "id": uid,
+            "nome": meta["nome"].values[0] if not meta.empty else row.get("name", ""),
+            "categoria": meta["categoria"].values[0] if not meta.empty else row.get("categoria", ""),
+            "grupo": meta["grupo"].values[0] if not meta.empty else row.get("grupo", ""),
+            "gerencia": meta["gerencia"].values[0] if not meta.empty else row.get("gerencia", ""),
+            "criacao": int(meta["ano_criacao"].values[0]) if not meta.empty and not pd.isna(meta["ano_criacao"].values[0]) else None,
+            "area_ha": float(meta["area_ha"].values[0]) if not meta.empty else float(row.get("area_ha", 0)),
+            "taxa_media": st.get("taxa_media", 0.0),
+            "pico_ano": st.get("pico_ano", None),
+            "pico_taxa": st.get("pico_taxa", 0.0),
+            "taxa_pre": st.get("taxa_pre", None),
+            "taxa_pos": st.get("taxa_pos", None),
+            "burned_ha_total": st.get("burned_ha_total", 0.0)
+        }
+        ucs_features.append({
+            "type": "Feature",
+            "id": uid,
+            "geometry": geom_2d,
+            "properties": props
+        })
+
+    geo_ucs_clean = {"type": "FeatureCollection", "features": ucs_features}
+
+    geom_para_2d = json.loads(json.dumps(mapping(gdf_para_simp.iloc[0]["geometry"])))
+    def strip_z_para(coords):
+        if isinstance(coords[0], (int, float)):
+            return [round(coords[0], 5), round(coords[1], 5)]
+        return [strip_z_para(c) for c in coords]
+    geom_para_2d["coordinates"] = strip_z_para(geom_para_2d["coordinates"])
+
+    geo_para_clean = {
+        "type": "FeatureCollection",
+        "features": [{"type": "Feature", "geometry": geom_para_2d, "properties": {"name": "Pará"}}]
+    }
+
+    clean_ucs_str = json.dumps(geo_ucs_clean, ensure_ascii=False)
+    clean_para_str = json.dumps(geo_para_clean, ensure_ascii=False)
+    series_json_str = json.dumps(series_by_uc, ensure_ascii=False)
 
     html_template = f"""<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Painel Interativo de Analise de Incendios nas UCs do Para</title>
+  <title>Dashboard Analítico de Incêndios - UCs Estaduais do Pará</title>
   
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 
   <style>
     * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-    html, body {{ width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }}
+    html, body {{ width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #0F172A; }}
     #map {{ width: 100%; height: 100%; position: absolute; top: 0; bottom: 0; left: 0; right: 0; }}
 
-    /* Painel Lateral de Controle e Filtros */
-    .control-panel {{
+    /* Painel Esquerdo: Filtros e KPIs Gerais */
+    .left-panel {{
       position: absolute;
       top: 14px;
       left: 14px;
-      width: 320px;
-      background: rgba(255, 255, 255, 0.96);
-      backdrop-filter: blur(8px);
-      padding: 16px;
+      width: 310px;
+      background: rgba(255, 255, 255, 0.97);
+      backdrop-filter: blur(10px);
+      padding: 14px 16px;
       border-radius: 8px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+      box-shadow: 0 4px 24px rgba(0,0,0,0.22);
       border: 1px solid #CBD5E1;
       z-index: 10;
       max-height: calc(100% - 28px);
       overflow-y: auto;
     }}
-    .panel-title {{
-      font-size: 14px;
-      font-weight: 700;
+    .panel-brand {{
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: -0.2px;
       color: #0F172A;
-      margin-bottom: 2px;
+      text-transform: uppercase;
+      line-height: 1.25;
     }}
-    .panel-sub {{
-      font-size: 11px;
-      color: #64748B;
+    .panel-subbrand {{
+      font-size: 10.5px;
+      font-weight: 600;
+      color: #0284C7;
+      margin-top: 2px;
       margin-bottom: 12px;
       border-bottom: 1px solid #E2E8F0;
       padding-bottom: 8px;
@@ -368,7 +429,7 @@ def create_interactive_maplibre_map(
     }}
     .filter-label {{
       font-size: 11px;
-      font-weight: 600;
+      font-weight: 700;
       color: #334155;
       margin-bottom: 4px;
       display: block;
@@ -376,50 +437,176 @@ def create_interactive_maplibre_map(
     .filter-select {{
       width: 100%;
       padding: 6px 8px;
-      font-size: 12px;
+      font-size: 11.5px;
       border: 1px solid #CBD5E1;
       border-radius: 4px;
       background: #FFFFFF;
       color: #0F172A;
+      font-weight: 500;
     }}
-    
-    /* Metricas dinamicas */
-    .stats-card {{
+    .filter-select:focus {{
+      outline: none;
+      border-color: #0284C7;
+    }}
+
+    /* Cards de KPIs Gerais */
+    .kpi-container {{
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-top: 12px;
+    }}
+    .kpi-card {{
       background: #F8FAFC;
       border: 1px solid #E2E8F0;
       border-radius: 6px;
-      padding: 10px;
-      margin-top: 12px;
+      padding: 8px 10px;
     }}
-    .stats-title {{
-      font-size: 11px;
-      font-weight: 700;
+    .kpi-label {{
+      font-size: 9.5px;
+      color: #64748B;
+      font-weight: 600;
+      text-transform: uppercase;
+    }}
+    .kpi-value {{
+      font-size: 13px;
+      font-weight: 800;
       color: #0F172A;
-      margin-bottom: 6px;
-    }}
-    .stats-row {{
-      display: flex;
-      justify-content: space-between;
-      font-size: 11px;
-      margin-bottom: 3px;
-    }}
-    .stats-val {{
-      font-weight: 700;
-      color: #D84315;
+      margin-top: 2px;
     }}
 
-    /* Legenda Tematica */
+    /* Painel Direito: Mini Dashboard da UC Selecionada */
+    .right-inspector {{
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      width: 380px;
+      background: rgba(255, 255, 255, 0.98);
+      backdrop-filter: blur(12px);
+      padding: 16px 18px;
+      border-radius: 8px;
+      box-shadow: 0 4px 28px rgba(0,0,0,0.25);
+      border: 1px solid #CBD5E1;
+      z-index: 10;
+      max-height: calc(100% - 28px);
+      overflow-y: auto;
+      transition: all 0.25s ease;
+    }}
+    .inspector-placeholder {{
+      text-align: center;
+      padding: 24px 10px;
+      color: #64748B;
+      font-size: 12px;
+      line-height: 1.5;
+    }}
+    .inspector-placeholder-icon {{
+      font-size: 28px;
+      margin-bottom: 8px;
+      color: #0284C7;
+    }}
+    .uc-title {{
+      font-size: 14px;
+      font-weight: 800;
+      color: #0F172A;
+      line-height: 1.3;
+      margin-bottom: 8px;
+    }}
+    .badge-bar {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-bottom: 12px;
+    }}
+    .badge {{
+      font-size: 9.5px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }}
+    .badge-gerencia {{ background: #E0F2FE; color: #0369A1; border: 1px solid #BAE6FD; }}
+    .badge-grupo {{ background: #FEF3C7; color: #B45309; border: 1px solid #FDE68A; }}
+    .badge-cat {{ background: #F1F5F9; color: #334155; border: 1px solid #CBD5E1; }}
+
+    /* Comparativo Pre vs Pos */
+    .impact-box {{
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 6px;
+      padding: 10px 12px;
+      margin-bottom: 14px;
+    }}
+    .impact-title {{
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #475569;
+      margin-bottom: 6px;
+    }}
+    .impact-row {{
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+      font-size: 11.5px;
+    }}
+    .diff-badge {{
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }}
+    .diff-reduction {{ background: #DCFCE7; color: #166534; }}
+    .diff-increase {{ background: #FEE2E2; color: #991B1B; }}
+
+    /* Grafico Dinamico Canvas */
+    .chart-container {{
+      margin-top: 10px;
+      position: relative;
+    }}
+    .chart-title {{
+      font-size: 10.5px;
+      font-weight: 700;
+      color: #334155;
+      margin-bottom: 4px;
+      display: flex;
+      justify-content: space-between;
+    }}
+    #chart-canvas {{
+      width: 100%;
+      height: 160px;
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      border-radius: 4px;
+      display: block;
+    }}
+    .chart-tooltip {{
+      position: absolute;
+      display: none;
+      background: rgba(15, 23, 42, 0.92);
+      color: #FFFFFF;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      pointer-events: none;
+      z-index: 20;
+      white-space: nowrap;
+    }}
+
+    /* Legenda Cartografica */
     .legend {{
       position: absolute;
       bottom: 20px;
-      right: 14px;
+      left: 14px;
       background: rgba(255, 255, 255, 0.96);
       backdrop-filter: blur(8px);
-      padding: 12px 16px;
-      border-radius: 8px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+      padding: 10px 14px;
+      border-radius: 6px;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.18);
       border: 1px solid #CBD5E1;
-      font-size: 11px;
+      font-size: 10.5px;
       z-index: 10;
     }}
     .legend-title {{
@@ -440,61 +627,43 @@ def create_interactive_maplibre_map(
       border-radius: 2px;
     }}
 
-    /* Tooltip */
-    .maplibregl-popup-content {{
-      padding: 12px 14px;
-      border-radius: 8px;
-      box-shadow: 0 4px 18px rgba(0,0,0,0.25);
+    .btn-reset {{
+      margin-top: 10px;
+      width: 100%;
+      padding: 6px;
+      background: #F1F5F9;
       border: 1px solid #CBD5E1;
-      font-size: 11.5px;
-      max-width: 300px;
-      line-height: 1.45;
-    }}
-    .popup-title {{
-      font-size: 13px;
-      font-weight: 700;
-      color: #0F172A;
-      margin-bottom: 6px;
-      border-bottom: 1px solid #E2E8F0;
-      padding-bottom: 4px;
-    }}
-    .popup-row {{
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 2px;
-    }}
-    .popup-val {{
+      border-radius: 4px;
+      font-size: 11px;
       font-weight: 600;
-      color: #0F172A;
+      color: #475569;
+      cursor: pointer;
     }}
-    .popup-badge {{
-      background: #FEE2E2;
-      color: #991B1B;
-      padding: 1px 5px;
-      border-radius: 3px;
-      font-weight: 700;
+    .btn-reset:hover {{
+      background: #E2E8F0;
+      color: #0F172A;
     }}
   </style>
 </head>
 <body>
   <div id="map"></div>
 
-  <!-- Painel Lateral de Filtros e Analise -->
-  <div class="control-panel">
-    <div class="panel-title">UNIDADES DE CONSERVAÇÃO ESTADUAIS</div>
-    <div class="panel-sub">Painel Analítico de Incêndios (1985 a 2023) | IDEFLOR-Bio</div>
+  <!-- Painel Esquerdo: Filtros e Totais -->
+  <div class="left-panel">
+    <div class="panel-brand">Painel Analítico de Incêndios</div>
+    <div class="panel-subbrand">IDEFLOR-Bio | Núcleo de Geotecnologias</div>
 
     <div class="filter-group">
-      <label class="filter-label" for="select-gerencia">Gerencia Regional:</label>
+      <label class="filter-label" for="select-gerencia">Gerência Regional:</label>
       <select id="select-gerencia" class="filter-select">
-        <option value="TODAS">Todas as Gerencias (29 UCs)</option>
+        <option value="TODAS">Todas as Gerências (29 UCs)</option>
         <option value="GRCN-I">Calha Norte I (GRCN-I)</option>
         <option value="GRCN-II">Calha Norte II (GRCN-II)</option>
         <option value="GRCN-III">Calha Norte III (GRCN-III)</option>
-        <option value="GRB">Belem (GRB)</option>
-        <option value="GRTUC">Tucurui (GRTUC)</option>
+        <option value="GRB">Belém (GRB)</option>
+        <option value="GRTUC">Tucuruí (GRTUC)</option>
         <option value="GRA">Araguaia (GRA)</option>
-        <option value="GRM">Marajo (GRM)</option>
+        <option value="GRM">Marajó (GRM)</option>
         <option value="GRNE">Nordeste (GRNE)</option>
         <option value="GRX">Xingu (GRX)</option>
       </select>
@@ -504,40 +673,131 @@ def create_interactive_maplibre_map(
       <label class="filter-label" for="select-grupo">Grupo SNUC:</label>
       <select id="select-grupo" class="filter-select">
         <option value="TODOS">Todos os Grupos</option>
-        <option value="Proteção Integral">Protecao Integral</option>
-        <option value="Uso Sustentável">Uso Sustentavel</option>
+        <option value="Proteção Integral">Proteção Integral</option>
+        <option value="Uso Sustentável">Uso Sustentável</option>
       </select>
     </div>
 
     <div class="filter-group">
       <label class="filter-label" for="select-basemap">Camada de Fundo:</label>
       <select id="select-basemap" class="filter-select">
-        <option value="gray">Esri World Gray (Cartografico Limpo)</option>
-        <option value="sat">Esri World Imagery (Satelite)</option>
+        <option value="gray">Esri World Gray (Cartográfico)</option>
+        <option value="sat">Esri World Imagery (Satélite)</option>
       </select>
     </div>
 
-    <!-- Indicadores dos poligonos visiveis -->
-    <div class="stats-card">
-      <div class="stats-title">Resumo dos Poligonos Filtrados</div>
-      <div class="stats-row"><span>UCs Exibidas:</span><span id="stat-count" class="stats-val">29</span></div>
-      <div class="stats-row"><span>Area Protegida:</span><span id="stat-area" class="stats-val">19.950.698 ha</span></div>
-      <div class="stats-row"><span>Taxa Media Queima:</span><span id="stat-taxa" class="stats-val">1,72% / ano</span></div>
+    <div class="kpi-container">
+      <div class="kpi-card">
+        <div class="kpi-label">UCs Filtradas</div>
+        <div id="kpi-count" class="kpi-value">29</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Taxa Média</div>
+        <div id="kpi-taxa" class="kpi-value" style="color: #EA580C;">1,72%</div>
+      </div>
+      <div class="kpi-card" style="grid-column: span 2;">
+        <div class="kpi-label">Área Protegida Total</div>
+        <div id="kpi-area" class="kpi-value">19.950.698 ha</div>
+      </div>
     </div>
   </div>
 
-  <!-- Legenda Tematica -->
+  <!-- Painel Direito: Mini Dashboard Detalhado da UC -->
+  <div id="inspector" class="right-inspector">
+    <div id="inspector-empty" class="inspector-placeholder">
+      <div class="inspector-placeholder-icon">&#9679;</div>
+      <strong>Inspeção Temporal de Unidade</strong><br />
+      Clique em qualquer UC no mapa para inspecionar os indicadores históricos de queimada e o efeito do marco legal de criação (1985 a 2023).
+      <div style="margin-top: 14px; text-align: left;">
+        <label class="filter-label" for="select-uc-direct">Ou selecione diretamente:</label>
+        <select id="select-uc-direct" class="filter-select">
+          <option value="">Selecione uma UC...</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="inspector-content" style="display: none;">
+      <div id="uc-name" class="uc-title">Nome da UC</div>
+      <div class="badge-bar">
+        <span id="badge-cat" class="badge badge-cat">Categoria</span>
+        <span id="badge-ger" class="badge badge-gerencia">Gerência</span>
+        <span id="badge-grp" class="badge badge-grupo">Grupo</span>
+      </div>
+
+      <div class="kpi-container" style="margin-bottom: 12px;">
+        <div class="kpi-card">
+          <div class="kpi-label">Área Oficial</div>
+          <div id="uc-area" class="kpi-value">0 ha</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Ano Criação</div>
+          <div id="uc-criacao" class="kpi-value">-</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Taxa Média Anual</div>
+          <div id="uc-taxa-media" class="kpi-value" style="color: #EA580C;">0,00%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Pico Histórico</div>
+          <div id="uc-pico" class="kpi-value">0,00%</div>
+        </div>
+      </div>
+
+      <div class="impact-box">
+        <div class="impact-title">Marco Temporal de Criação Legal</div>
+        <div class="impact-row">
+          <span>Média Pré-Criação:</span>
+          <strong id="val-pre">-</strong>
+        </div>
+        <div class="impact-row">
+          <span>Média Pós-Criação:</span>
+          <strong id="val-pos">-</strong>
+        </div>
+        <div class="impact-row" style="margin-top: 4px; padding-top: 4px; border-top: 1px dashed #CBD5E1;">
+          <span>Variação Observada:</span>
+          <span id="badge-diff" class="diff-badge">-</span>
+        </div>
+      </div>
+
+      <div class="chart-container">
+        <div class="chart-title">
+          <span>Evolução Anual da Taxa (% da UC)</span>
+          <span style="font-size: 9px; color: #64748B;">1985–2023</span>
+        </div>
+        <canvas id="chart-canvas" width="344" height="160"></canvas>
+        <div id="chart-tooltip" class="chart-tooltip"></div>
+      </div>
+
+      <button id="btn-close-inspect" class="btn-reset">Fechar Detalhes da UC</button>
+    </div>
+  </div>
+
+  <!-- Legenda Cartografica -->
   <div class="legend">
-    <div class="legend-title">Taxa Media Anual de Queima</div>
-    <div class="legend-item"><div class="legend-box" style="background: #FFFFB2;"></div><span>0,00% a 0,50% (Baixissima)</span></div>
+    <div class="legend-title">Taxa Média Anual de Queima</div>
+    <div class="legend-item"><div class="legend-box" style="background: #FFFFB2;"></div><span>0,00% a 0,50% (Baixíssima)</span></div>
     <div class="legend-item"><div class="legend-box" style="background: #FECC5C;"></div><span>0,51% a 2,00% (Baixa)</span></div>
     <div class="legend-item"><div class="legend-box" style="background: #FD8D3C;"></div><span>2,01% a 4,00% (Moderada)</span></div>
     <div class="legend-item"><div class="legend-box" style="background: #F03B20;"></div><span>4,01% a 7,00% (Alta)</span></div>
-    <div class="legend-item"><div class="legend-box" style="background: #BD0026;"></div><span>Acima de 7,00% (Critica)</span></div>
+    <div class="legend-item"><div class="legend-box" style="background: #BD0026;"></div><span>Acima de 7,00% (Crítica)</span></div>
   </div>
 
   <script>
-    // Inicializacao MapLibre com servicos estaveis da Esri (livres de bloqueio de API key)
+    const ucsGeo = {clean_ucs_str};
+    const paraGeo = {clean_para_str};
+    const seriesData = {series_json_str};
+
+    const selDirect = document.getElementById('select-uc-direct');
+    ucsGeo.features
+      .slice()
+      .sort((a, b) => a.properties.nome.localeCompare(b.properties.nome))
+      .forEach(f => {{
+        const opt = document.createElement('option');
+        opt.value = f.properties.id;
+        opt.textContent = f.properties.nome;
+        selDirect.appendChild(opt);
+      }});
+
     const map = new maplibregl.Map({{
       container: 'map',
       style: {{
@@ -545,34 +805,20 @@ def create_interactive_maplibre_map(
         sources: {{
           'esri-gray': {{
             type: 'raster',
-            tiles: [
-              'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{{z}}/{{y}}/{{x}}'
-            ],
+            tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{{z}}/{{y}}/{{x}}'],
             tileSize: 256,
-            attribution: 'Esri, HERE, Garmin, &copy; OpenStreetMap'
+            attribution: 'Esri, HERE, &copy; OpenStreetMap'
           }},
           'esri-sat': {{
             type: 'raster',
-            tiles: [
-              'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{{z}}/{{y}}/{{x}}'
-            ],
+            tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{{z}}/{{y}}/{{x}}'],
             tileSize: 256,
-            attribution: 'Esri, Maxar, Earthstar Geographics'
+            attribution: 'Esri, Maxar'
           }}
         }},
         layers: [
-          {{
-            id: 'basemap-gray',
-            type: 'raster',
-            source: 'esri-gray',
-            layout: {{ visibility: 'visible' }}
-          }},
-          {{
-            id: 'basemap-sat',
-            type: 'raster',
-            source: 'esri-sat',
-            layout: {{ visibility: 'none' }}
-          }}
+          {{ id: 'basemap-gray', type: 'raster', source: 'esri-gray', layout: {{ visibility: 'visible' }} }},
+          {{ id: 'basemap-sat', type: 'raster', source: 'esri-sat', layout: {{ visibility: 'none' }} }}
         ]
       }},
       center: [-52.5, -3.8],
@@ -580,38 +826,35 @@ def create_interactive_maplibre_map(
     }});
 
     window.addEventListener('resize', () => map.resize());
-    setTimeout(() => map.resize(), 500);
+    setTimeout(() => map.resize(), 300);
 
-    map.addControl(new maplibregl.NavigationControl(), 'top-right');
-    map.addControl(new maplibregl.FullscreenControl(), 'top-right');
-    map.addControl(new maplibregl.ScaleControl({{ maxWidth: 120, unit: 'metric' }}), 'bottom-left');
+    map.addControl(new maplibregl.NavigationControl(), 'top-left');
+    map.addControl(new maplibregl.FullscreenControl(), 'top-left');
 
-    const ucsData = {geo_ucs_json_str};
-    const paraData = {geo_para_json_str};
+    let currentSelectedId = null;
 
     map.on('load', () => {{
-      map.addSource('limite-para', {{
+      map.addSource('para-border', {{
         type: 'geojson',
-        data: paraData
+        data: paraGeo
       }});
 
       map.addLayer({{
-        id: 'limite-para-line',
+        id: 'para-line',
         type: 'line',
-        source: 'limite-para',
+        source: 'para-border',
         paint: {{
           'line-color': '#0F172A',
-          'line-width': 2.0,
+          'line-width': 1.8,
           'line-dasharray': [3, 2]
         }}
       }});
 
       map.addSource('ucs-ideflor', {{
         type: 'geojson',
-        data: ucsData
+        data: ucsGeo
       }});
 
-      // Preenchimento por classes identicas a prancha cartografica estatica
       map.addLayer({{
         id: 'ucs-fill',
         type: 'fill',
@@ -619,14 +862,14 @@ def create_interactive_maplibre_map(
         paint: {{
           'fill-color': [
             'step',
-            ['get', 'taxa_media_pct'],
+            ['to-number', ['get', 'taxa_media'], 0.0],
             '#FFFFB2',
             0.51, '#FECC5C',
             2.01, '#FD8D3C',
             4.01, '#F03B20',
             7.01, '#BD0026'
           ],
-          'fill-opacity': 0.85
+          'fill-opacity': 0.88
         }}
       }});
 
@@ -636,7 +879,7 @@ def create_interactive_maplibre_map(
         source: 'ucs-ideflor',
         paint: {{
           'line-color': '#000000',
-          'line-width': 1.0
+          'line-width': 0.8
         }}
       }});
 
@@ -646,65 +889,48 @@ def create_interactive_maplibre_map(
         source: 'ucs-ideflor',
         paint: {{
           'line-color': '#000000',
-          'line-width': 3.2
+          'line-width': 3.5
         }},
-        filter: ['==', 'id', '']
+        filter: ['==', ['to-number', ['get', 'id']], -1]
       }});
 
-      // Popup de Informacoes
-      const popup = new maplibregl.Popup({{
-        closeButton: false,
-        closeOnClick: false
-      }});
-
-      map.on('mousemove', 'ucs-fill', (e) => {{
+      map.on('mousemove', 'ucs-fill', () => {{
         map.getCanvas().style.cursor = 'pointer';
-
-        if (e.features && e.features.length > 0) {{
-          const props = e.features[0].properties;
-          map.setFilter('ucs-highlight', ['==', 'id', props.id]);
-
-          const taxaMedia = Number(props.taxa_media_pct || 0).toFixed(2);
-          const taxaMax = Number(props.taxa_max_pct || 0).toFixed(2);
-          const areaHa = Number(props.area_ha || 0).toLocaleString('pt-BR', {{ maximumFractionDigits: 0 }});
-          const totalBurned = Number(props.burned_ha_total || 0).toLocaleString('pt-BR', {{ maximumFractionDigits: 0 }});
-
-          const html = `
-            <div class="popup-title">${{props.name || props.nome_}}</div>
-            <div class="popup-row"><span>Gerencia:</span><span class="popup-val">${{props.gerencia || '-'}}</span></div>
-            <div class="popup-row"><span>Categoria:</span><span class="popup-val">${{props.categoria || '-'}} (${{props.grupo || '-'}})</span></div>
-            <div class="popup-row"><span>Ano Criacao:</span><span class="popup-val">${{props.criacao || '-'}}</span></div>
-            <div class="popup-row"><span>Area Total:</span><span class="popup-val">${{areaHa}} ha</span></div>
-            <div class="popup-row"><span>Taxa Media:</span><span class="popup-badge">${{taxaMedia}}% ao ano</span></div>
-            <div class="popup-row"><span>Pico Historico:</span><span class="popup-val">${{taxaMax}}%</span></div>
-            <div class="popup-row"><span>Queima Acumulada:</span><span class="popup-val">${{totalBurned}} ha</span></div>
-          `;
-
-          popup.setLngLat(e.lngLat).setHTML(html).addTo(map);
-        }}
       }});
 
       map.on('mouseleave', 'ucs-fill', () => {{
         map.getCanvas().style.cursor = '';
-        map.setFilter('ucs-highlight', ['==', 'id', '']);
-        popup.remove();
       }});
 
-      // LOGICA DOS FILTROS INTERATIVOS
+      map.on('click', 'ucs-fill', (e) => {{
+        if (e.features && e.features.length > 0) {{
+          const props = e.features[0].properties;
+          selectUC(props.id);
+        }}
+      }});
+
+      selDirect.addEventListener('change', (e) => {{
+        if (e.target.value) {{
+          selectUC(parseInt(e.target.value));
+        }}
+      }});
+
+      document.getElementById('btn-close-inspect').addEventListener('click', () => {{
+        clearSelection();
+      }});
+
       const selGer = document.getElementById('select-gerencia');
       const selGrp = document.getElementById('select-grupo');
       const selBase = document.getElementById('select-basemap');
 
-      function aplicarFiltros() {{
+      function updateFilters() {{
         const gerVal = selGer.value;
         const grpVal = selGrp.value;
 
         const filters = ['all'];
-
         if (gerVal !== 'TODAS') {{
           filters.push(['in', gerVal, ['get', 'gerencia']]);
         }}
-
         if (grpVal !== 'TODOS') {{
           filters.push(['==', ['get', 'grupo'], grpVal]);
         }}
@@ -713,27 +939,26 @@ def create_interactive_maplibre_map(
         map.setFilter('ucs-fill', filterExpr);
         map.setFilter('ucs-line', filterExpr);
 
-        // Atualizar estatisticas dos poligonos visiveis
-        const featuresFiltradas = ucsData.features.filter(f => {{
+        const filtered = ucsGeo.features.filter(f => {{
           const p = f.properties;
           const matchGer = (gerVal === 'TODAS') || (p.gerencia && p.gerencia.includes(gerVal));
           const matchGrp = (grpVal === 'TODOS') || (p.grupo === grpVal);
           return matchGer && matchGrp;
         }});
 
-        const totalUcs = featuresFiltradas.length;
-        const totalArea = featuresFiltradas.reduce((acc, f) => acc + (f.properties.area_ha || 0), 0);
-        const taxaMedia = totalUcs > 0
-          ? (featuresFiltradas.reduce((acc, f) => acc + (f.properties.taxa_media_pct || 0), 0) / totalUcs)
+        const count = filtered.length;
+        const totalArea = filtered.reduce((acc, f) => acc + (f.properties.area_ha || 0), 0);
+        const taxaMedia = count > 0
+          ? (filtered.reduce((acc, f) => acc + (f.properties.taxa_media || 0), 0) / count)
           : 0.0;
 
-        document.getElementById('stat-count').innerText = totalUcs;
-        document.getElementById('stat-area').innerText = totalArea.toLocaleString('pt-BR', {{ maximumFractionDigits: 0 }}) + ' ha';
-        document.getElementById('stat-taxa').innerText = taxaMedia.toFixed(2) + '% / ano';
+        document.getElementById('kpi-count').innerText = count;
+        document.getElementById('kpi-area').innerText = totalArea.toLocaleString('pt-BR', {{ maximumFractionDigits: 0 }}) + ' ha';
+        document.getElementById('kpi-taxa').innerText = taxaMedia.toFixed(2) + '%';
       }}
 
-      selGer.addEventListener('change', aplicarFiltros);
-      selGrp.addEventListener('change', aplicarFiltros);
+      selGer.addEventListener('change', updateFilters);
+      selGrp.addEventListener('change', updateFilters);
 
       selBase.addEventListener('change', (e) => {{
         if (e.target.value === 'sat') {{
@@ -745,6 +970,171 @@ def create_interactive_maplibre_map(
         }}
       }});
     }});
+
+    function selectUC(id) {{
+      currentSelectedId = id;
+      map.setFilter('ucs-highlight', ['==', ['to-number', ['get', 'id']], id]);
+
+      const feat = ucsGeo.features.find(f => f.properties.id === id);
+      if (!feat) return;
+      const p = feat.properties;
+      const s = seriesData[id] || {{}};
+
+      document.getElementById('inspector-empty').style.display = 'none';
+      document.getElementById('inspector-content').style.display = 'block';
+
+      document.getElementById('uc-name').innerText = p.nome;
+      document.getElementById('badge-cat').innerText = p.categoria || 'UC';
+      document.getElementById('badge-ger').innerText = p.gerencia || '-';
+      document.getElementById('badge-grp').innerText = p.grupo || '-';
+
+      document.getElementById('uc-area').innerText = Number(p.area_ha).toLocaleString('pt-BR', {{ maximumFractionDigits: 0 }}) + ' ha';
+      document.getElementById('uc-criacao').innerText = p.criacao ? p.criacao : 'Sem data';
+      document.getElementById('uc-taxa-media').innerText = Number(p.taxa_media).toFixed(2) + '% / ano';
+      document.getElementById('uc-pico').innerText = (p.pico_taxa ? p.pico_taxa.toFixed(2) + '% (' + p.pico_ano + ')' : '-');
+
+      if (p.taxa_pre !== null && p.taxa_pos !== null) {{
+        document.getElementById('val-pre').innerText = p.taxa_pre.toFixed(2) + '% / ano';
+        document.getElementById('val-pos').innerText = p.taxa_pos.toFixed(2) + '% / ano';
+
+        const diff = p.taxa_pos - p.taxa_pre;
+        const diffPct = p.taxa_pre > 0 ? ((diff / p.taxa_pre) * 100).toFixed(1) : '0';
+        const badgeDiff = document.getElementById('badge-diff');
+        if (diff < 0) {{
+          badgeDiff.className = 'diff-badge diff-reduction';
+          badgeDiff.innerText = diffPct + '% (Redução da Queima)';
+        }} else {{
+          badgeDiff.className = 'diff-badge diff-increase';
+          badgeDiff.innerText = '+' + diffPct + '% (Aumento da Queima)';
+        }}
+      }} else {{
+        document.getElementById('val-pre').innerText = 'N/A';
+        document.getElementById('val-pos').innerText = 'N/A';
+        const badgeDiff = document.getElementById('badge-diff');
+        badgeDiff.className = 'diff-badge';
+        badgeDiff.innerText = 'Sem marco temporal pré/pós';
+      }}
+
+      renderChart(s, p.criacao);
+    }}
+
+    function clearSelection() {{
+      currentSelectedId = null;
+      map.setFilter('ucs-highlight', ['==', ['to-number', ['get', 'id']], -1]);
+      document.getElementById('inspector-content').style.display = 'none';
+      document.getElementById('inspector-empty').style.display = 'block';
+      selDirect.value = '';
+    }}
+
+    function renderChart(series, anoCriacao) {{
+      const canvas = document.getElementById('chart-canvas');
+      const ctx = canvas.getContext('2d');
+      const width = canvas.width;
+      const height = canvas.height;
+      ctx.clearRect(0, 0, width, height);
+
+      if (!series || !series.anos || series.anos.length === 0) return;
+
+      const anos = series.anos;
+      const taxas = series.taxas;
+      const has = series.ha;
+      const n = anos.length;
+      const maxTaxa = Math.max(...taxas, 1.0);
+
+      const paddingLeft = 32;
+      const paddingRight = 10;
+      const paddingTop = 14;
+      const paddingBottom = 22;
+
+      const plotW = width - paddingLeft - paddingRight;
+      const plotH = height - paddingTop - paddingBottom;
+
+      ctx.strokeStyle = '#E2E8F0';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let i = 0; i <= 3; i++) {{
+        const yVal = (maxTaxa * i) / 3;
+        const yPos = paddingTop + plotH - (plotH * i) / 3;
+        ctx.moveTo(paddingLeft, yPos);
+        ctx.lineTo(width - paddingRight, yPos);
+        ctx.fillStyle = '#64748B';
+        ctx.font = '8.5px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(yVal.toFixed(1) + '%', paddingLeft - 4, yPos + 3);
+      }}
+      ctx.stroke();
+
+      const barW = (plotW / n) * 0.75;
+      const step = plotW / n;
+
+      for (let i = 0; i < n; i++) {{
+        const ano = anos[i];
+        const val = taxas[i];
+        const barH = (val / maxTaxa) * plotH;
+        const xPos = paddingLeft + i * step + (step - barW) / 2;
+        const yPos = paddingTop + plotH - barH;
+
+        if (anoCriacao && ano < anoCriacao) {{
+          ctx.fillStyle = '#94A3B8';
+        }} else {{
+          ctx.fillStyle = '#EA580C';
+        }}
+
+        if (val === series.pico_taxa) {{
+          ctx.fillStyle = '#B91C1C';
+        }}
+
+        ctx.fillRect(xPos, yPos, barW, barH);
+
+        if (i === 0 || i === n - 1 || ano === anoCriacao) {{
+          ctx.fillStyle = '#475569';
+          ctx.font = '8px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(ano, xPos + barW / 2, height - 6);
+        }}
+      }}
+
+      if (anoCriacao) {{
+        const idx = anos.indexOf(anoCriacao);
+        if (idx >= 0) {{
+          const xMark = paddingLeft + idx * step + step / 2;
+          ctx.setLineDash([3, 2]);
+          ctx.strokeStyle = '#0284C7';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(xMark, paddingTop);
+          ctx.lineTo(xMark, paddingTop + plotH);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          ctx.fillStyle = '#0284C7';
+          ctx.font = 'bold 8px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('Criação', xMark, paddingTop - 4);
+        }}
+      }}
+
+      canvas.onmousemove = (e) => {{
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
+        if (mouseX >= paddingLeft && mouseX <= width - paddingRight) {{
+          const i = Math.floor((mouseX - paddingLeft) / step);
+          if (i >= 0 && i < n) {{
+            const ano = anos[i];
+            const val = taxas[i];
+            const ha = has[i];
+            const tt = document.getElementById('chart-tooltip');
+            tt.style.display = 'block';
+            tt.style.left = (e.clientX - rect.left - 40) + 'px';
+            tt.style.top = (e.clientY - rect.top - 32) + 'px';
+            tt.innerHTML = `<strong>${{ano}}</strong>: ${{val.toFixed(2)}}% (${{ha.toLocaleString('pt-BR')}} ha)`;
+          }}
+        }}
+      }};
+      canvas.onmouseleave = () => {{
+        document.getElementById('chart-tooltip').style.display = 'none';
+      }};
+    }}
   </script>
 </body>
 </html>
@@ -754,12 +1144,12 @@ def create_interactive_maplibre_map(
         dest_html = output_path or (DATA_OUTPUT / "mapa_interativo_fogo_ucs.html")
         with open(dest_html, "w", encoding="utf-8") as f:
             f.write(html_template)
-        print(f"Mapa interativo MapLibre GL JS salvo em: {dest_html}")
+        print(f"Mini Dashboard MapLibre GL JS salvo em: {dest_html}")
 
     return html_template
 
-def display_maplibre_in_notebook(df_series: pd.DataFrame, height: int = 650):
-    """Gera e exibe o mapa interativo com filtros MapLibre GL JS diretamente no notebook."""
+def display_maplibre_in_notebook(df_series: pd.DataFrame, height: int = 700):
+    """Gera e exibe o dashboard interativo MapLibre GL JS diretamente no notebook."""
     from IPython.display import HTML
     import html as py_html
 
@@ -767,7 +1157,7 @@ def display_maplibre_in_notebook(df_series: pd.DataFrame, height: int = 650):
     escaped = py_html.escape(html_raw, quote=True)
 
     return HTML(f'''
-    <div style="width: 100%; height: {height}px; border: 1px solid #CBD5E1; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.12);">
+    <div style="width: 100%; height: {height}px; border: 1px solid #CBD5E1; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.15);">
       <iframe srcdoc="{escaped}" style="width: 100%; height: 100%; border: none;" allow="fullscreen"></iframe>
     </div>
     ''')
