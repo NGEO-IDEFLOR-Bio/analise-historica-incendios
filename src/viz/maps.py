@@ -1,14 +1,14 @@
 """
 Modulo de cartografia e mapeamento espacial institucional.
 Padronizado no layout cartografico oficial do NGEO/IDEFLOR-Bio (Prancha Paisagem A4/A3):
-- Cabecalho superior com titulo oficial
-- Painel cartografico principal (corpo esquerdo)
+- Cabecalho superior com titulo oficial e bordas completas
+- Painel cartografico principal (corpo esquerdo) com rotulos claros de Longitude e Latitude
 - Coluna lateral direita:
-  * Painel de Enquadramento Geografico / Localizacao no Brasil (Para em destaque cinza)
+  * Painel de Enquadramento Geografico / Localizacao no Brasil (com siglas e setas de chamada)
   * Painel de Legenda Tematica estruturada
-  * Carimbo Institucional (Metadados, Data, Projecao e Creditos)
+  * Carimbo Institucional Oficial (NGEO / IDEFLOR-BIO)
 - Mini Dashboard Interativo baseado em MapLibre GL JS com filtros por Gerencia Regional,
-  Grupo SNUC, enquadramento otimizado de todas as feicoes e modulo deslizante de inspecao
+  Grupo SNUC, enquadramento dinamicamente ajustado e modulo deslizante de inspecao
   temporal com graficos interativos 1985 a 2023.
 """
 from typing import Optional, Dict, Any, Tuple
@@ -65,11 +65,11 @@ def plot_static_map(
 ) -> Tuple[plt.Figure, Any]:
     """
     Gera prancha cartografica oficial no padrao institucional do NGEO / IDEFLOR-Bio:
-    - Margens e moldura externa perimetral (neatline) com espacamento anti-corte
-    - Cabecalho horizontal superior (titulo institucional completo)
-    - Painel principal esquerdo (mapa tematico com grade, limites e UCs)
+    - Borda externa perimetral (neatline)
+    - Todas as caixas delimitadoras com quatro bordas completas e visiveis (superior, inferior, esquerda, direita)
+    - Painel principal esquerdo com rotulos limpos de Longitude e Latitude
     - Coluna lateral direita:
-      * Painel superior: Enquadramento geografico focado no Brasil (Para em cinza de destaque)
+      * Painel superior: Enquadramento geografico focado no Brasil (com rotulos e setas de chamada)
       * Painel inferior: Legenda tematica estruturada e Carimbo Oficial do IDEFLOR-BIO
     """
     apply_ggplot_theme()
@@ -92,22 +92,24 @@ def plot_static_map(
 
     fig = plt.figure(figsize=figsize, facecolor="#FFFFFF")
 
-    # Moldura externa geral (neatline) posicionada com margem livre em relacao a borda da folha
+    # Moldura externa geral (neatline)
     neatline = patches.Rectangle(
-        (0.025, 0.025), 0.950, 0.950,
+        (0.022, 0.022), 0.956, 0.956,
         transform=fig.transFigure,
         fill=False, edgecolor="#000000", linewidth=1.5
     )
     fig.patches.append(neatline)
 
-    # Coordenadas internas rigorosamente calibradas para eliminar sobreposicao e cortes
+    # Coordenadas internas calibradas para folga perfeita dos rotulos e ausencia de cortes
     ax_head = fig.add_axes([0.035, 0.895, 0.930, 0.065])
-    ax_main = fig.add_axes([0.082, 0.075, 0.630, 0.805])
+    ax_main = fig.add_axes([0.088, 0.082, 0.624, 0.798])
     ax_inset = fig.add_axes([0.730, 0.510, 0.235, 0.370])
     ax_side = fig.add_axes([0.730, 0.040, 0.235, 0.450])
 
+    # Garantir expressamente a visibilidade de todas as quatro bordas em todos os quadrantes
     for ax in [ax_head, ax_main, ax_inset, ax_side]:
         for spine in ax.spines.values():
+            spine.set_visible(True)
             spine.set_color("#000000")
             spine.set_linewidth(1.3)
 
@@ -133,12 +135,10 @@ def plot_static_map(
     ax_main.set_xlim(xlim)
     ax_main.set_ylim(ylim)
 
-    # Camadas de fundo
     gdf_sa.plot(ax=ax_main, facecolor="#F1F5F9", edgecolor="#CBD5E1", linewidth=0.6, zorder=2)
     gdf_ufs.plot(ax=ax_main, facecolor="#F8FAFC", edgecolor="#D1D5DB", linewidth=0.6, zorder=3)
     gdf_para.plot(ax=ax_main, facecolor="#FFFFFF", edgecolor="#000000", linewidth=1.8, zorder=4)
 
-    # Classes discretizadas de pressao do fogo
     classes_cores = [
         {"min": 0.0, "max": 0.5, "cor": "#FFFFB2", "label": "0,00% a 0,50% (Baixíssima pressão)"},
         {"min": 0.5, "max": 2.0, "cor": "#FECC5C", "label": "0,51% a 2,00% (Baixa pressão)"},
@@ -159,7 +159,6 @@ def plot_static_map(
                 zorder=10
             )
 
-    # Rotulos de paises e estados vizinhos
     rotulos_vizinhos = [
         {"texto": "AMAZONAS", "pos": (-58.2, -4.5)},
         {"texto": "MATO GROSSO", "pos": (-54.5, -9.9)},
@@ -180,7 +179,6 @@ def plot_static_map(
                 ha="center", va="center", zorder=6
             )
 
-    # Grade de coordenadas com rotulos limpos de Longitude e Latitude
     x_ticks = np.arange(-58, -44, 4)
     y_ticks = np.arange(-10, 4, 2)
     ax_main.set_xticks(x_ticks)
@@ -189,43 +187,82 @@ def plot_static_map(
     ax_main.set_yticklabels([f"{int(y)}°0'0\"N" if y > 0 else (f"{abs(int(y))}°0'0\"S" if y < 0 else "0°0'0\"") for y in y_ticks], fontsize=8, color="#000000")
     ax_main.grid(True, linestyle=":", color="#64748B", alpha=0.45, zorder=5)
 
-    ax_main.set_xlabel("Longitude", fontsize=9, fontweight="bold", color="#334155", labelpad=6)
-    ax_main.set_ylabel("Latitude", fontsize=9, fontweight="bold", color="#334155", labelpad=6)
+    ax_main.set_xlabel("Longitude", fontsize=9.2, fontweight="bold", color="#334155", labelpad=7)
+    ax_main.set_ylabel("Latitude", fontsize=9.2, fontweight="bold", color="#334155", labelpad=7)
 
-    # Rosa dos ventos e escala grafica no painel principal
     _draw_north_arrow(ax_main, x=-47.0, y=2.2, size=0.65)
     _draw_scale_bar(ax_main, x0=-57.8, y0=-9.2, length_km=300.0, lat_ref=-4.0)
 
-    # 3. COLUNA DIREITA - PAINEL SUPERIOR: ENQUADRAMENTO GEOGRAFICO FOCADO NO BRASIL
+    # 3. COLUNA DIREITA - PAINEL SUPERIOR: ENQUADRAMENTO GEOGRAFICO NO BRASIL
     ax_inset.set_facecolor("#E0F2FE")
 
-    xlim_br = (-74.5, -34.5)
+    xlim_br = (-74.5, -30.0)
     ylim_br = (-34.0, 5.5)
     ax_inset.set_xlim(xlim_br)
     ax_inset.set_ylim(ylim_br)
 
     gdf_sa.plot(ax=ax_inset, facecolor="#F8FAFC", edgecolor="#E2E8F0", linewidth=0.3)
     gdf_ufs.plot(ax=ax_inset, facecolor="#F1F5F9", edgecolor="#CBD5E1", linewidth=0.4)
-    # Estado do Para destacado em cinza institucional (nao preto)
     gdf_para.plot(ax=ax_inset, facecolor="#94A3B8", edgecolor="#475569", linewidth=0.8)
 
+    # Retangulo delimitador da area de estudo em vermelho
     rect_extent = patches.Rectangle(
         (xlim[0], ylim[0]), xlim[1] - xlim[0], ylim[1] - ylim[0],
         linewidth=1.2, edgecolor="#DC2626", facecolor="none", linestyle="-", zorder=10
     )
     ax_inset.add_patch(rect_extent)
 
-    ax_inset.set_xticks([])
-    ax_inset.set_yticks([])
+    # Rotulos diretos dos estados maiores sobre seus baricentros
+    estados_diretos = [
+        ("PA", -53.07, -3.98, "#FFFFFF", 8.5, "bold"),
+        ("AM", -64.65, -4.15, "#64748B", 7.0, "normal"),
+        ("RR", -61.39, 2.08, "#64748B", 6.5, "normal"),
+        ("AP", -51.96, 1.45, "#64748B", 6.5, "normal"),
+        ("AC", -70.47, -9.21, "#64748B", 6.5, "normal"),
+        ("RO", -62.84, -10.91, "#64748B", 6.5, "normal"),
+        ("MT", -55.91, -12.95, "#64748B", 7.0, "normal"),
+        ("MS", -54.85, -20.33, "#64748B", 6.5, "normal"),
+        ("TO", -48.33, -10.15, "#64748B", 6.5, "normal"),
+        ("GO", -49.62, -16.04, "#64748B", 6.5, "normal"),
+        ("MA", -45.29, -5.07, "#64748B", 6.5, "normal"),
+        ("PI", -42.97, -7.39, "#64748B", 6.5, "normal"),
+        ("CE", -39.62, -5.09, "#64748B", 6.5, "normal"),
+        ("BA", -41.72, -12.48, "#64748B", 7.0, "normal"),
+        ("MG", -44.67, -18.46, "#64748B", 7.0, "normal"),
+        ("SP", -48.73, -22.27, "#64748B", 6.5, "normal"),
+        ("PR", -51.62, -24.64, "#64748B", 6.5, "normal"),
+        ("SC", -50.47, -27.25, "#64748B", 6.5, "normal"),
+        ("RS", -53.24, -29.79, "#64748B", 6.5, "normal"),
+    ]
+    for sigla, x, y, cor, fsz, fweight in estados_diretos:
+        ax_inset.text(x, y, sigla, fontsize=fsz, fontweight=fweight, color=cor, ha="center", va="center")
 
-    ax_inset.text(-50, 3.5, "Brasil", fontsize=9, fontweight="bold", color="#334155", ha="center")
-    ax_inset.text(-38, -12, "Oceano\nAtlântico", fontsize=8, fontstyle="italic", color="#0284C7", ha="center")
-    ax_inset.text(-52, -4, "PA", fontsize=9, fontweight="bold", color="#FFFFFF", ha="center")
-    ax_inset.text(-63, -4, "AM", fontsize=7.5, color="#64748B")
-    ax_inset.text(-53, -13, "MT", fontsize=7.5, color="#64748B")
-    ax_inset.text(-48, -10, "TO", fontsize=7.5, color="#64748B")
-    ax_inset.text(-45, -5, "MA", fontsize=7.5, color="#64748B")
-    ax_inset.text(-51, 1.5, "AP", fontsize=7.5, color="#64748B")
+    # Setas de chamada (callouts) para estados costeiros menores
+    estados_callouts = [
+        ("RN", -36.67, -5.84, -32.5, -5.84),
+        ("PB", -36.83, -7.12, -32.0, -7.12),
+        ("PE", -38.00, -8.33, -32.5, -8.33),
+        ("AL", -36.63, -9.51, -32.0, -9.51),
+        ("SE", -37.44, -10.58, -32.5, -10.58),
+        ("ES", -40.67, -19.57, -35.5, -19.57),
+        ("RJ", -42.66, -22.20, -36.5, -22.20),
+    ]
+    for sigla, x_src, y_src, x_txt, y_txt in estados_callouts:
+        ax_inset.annotate(
+            sigla, xy=(x_src, y_src), xytext=(x_txt, y_txt),
+            arrowprops=dict(arrowstyle="->", color="#64748B", lw=0.6),
+            fontsize=6.5, fontweight="bold", color="#1E293B", va="center"
+        )
+
+    ax_inset.text(-50, 4.0, "Brasil", fontsize=9, fontweight="bold", color="#334155", ha="center")
+    ax_inset.text(-36, -15, "Oceano\nAtlântico", fontsize=8, fontstyle="italic", color="#0284C7", ha="center")
+
+    # Eliminacao total de eixos e rotulos indesejados no mapa de enquadramento
+    ax_inset.set_xlabel("")
+    ax_inset.set_ylabel("")
+    ax_inset.xaxis.label.set_visible(False)
+    ax_inset.yaxis.label.set_visible(False)
+    ax_inset.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
 
     # 4. COLUNA DIREITA - PAINEL INFERIOR: LEGENDA E CARIMBO INSTITUCIONAL
     ax_side.set_facecolor("#FFFFFF")
@@ -252,7 +289,6 @@ def plot_static_map(
         ax_side.text(0.18, y_leg, cl["label"], fontsize=8.2, va="center", color="#000000")
 
     # 4.2. CARIMBO TECNICO / INSTITUCIONAL (RODAPE LATERAL)
-    # Identificacao institucional oficial exigida pelo NGEO/IDEFLOR-Bio
     ax_side.text(0.06, 0.32, "Núcleo de Geotecnologias (NGEO)", fontsize=9.2, fontweight="bold", color="#000000")
     ax_side.text(0.06, 0.24, "Instituto de Desenvolvimento Florestal e da\nBiodiversidade do Estado do Pará - IDEFLOR-BIO", fontsize=7.8, fontweight="bold", color="#1E293B", linespacing=1.25)
 
@@ -279,7 +315,7 @@ def create_interactive_maplibre_map(
     """
     Gera Mini Dashboard analitico interativo de alta performance com MapLibre GL JS:
     - Base vetorial otimizada 2D WGS84 (< 300 KB) com cores tematicas diretas
-    - Enquadramento inicial perfeito com ajuste automatico de limites (fitBounds)
+    - Enquadramento inicial garantido com chamada mandatória a map.fitBounds(...)
     - Painel lateral esquerdo compacto (250px) com recolhimento para visualizacao desobstruida
     - Modulo de inspecao analitica detalhada da UC selecionada que surge apenas sob demanda
     - Grafico Canvas anual (1985 a 2023) com tooltips e marco legal de criacao
@@ -328,7 +364,6 @@ def create_interactive_maplibre_map(
             "taxa_media": round(float(grp_sorted["taxa_queimada_pct"].mean()), 2)
         }
 
-    # Atribuicao de cor direta por classe para garantir 100% de compatibilidade WebGL
     def get_color(taxa: float) -> str:
         if taxa <= 0.50:
             return "#FFFFB2"
@@ -687,24 +722,24 @@ def create_interactive_maplibre_map(
       white-space: nowrap;
     }}
 
-    /* Legenda Cartografica */
+    /* Legenda Cartografica Compacta */
     .legend {{
       position: absolute;
-      bottom: 20px;
+      bottom: 12px;
       left: 12px;
       background: rgba(255, 255, 255, 0.95);
       backdrop-filter: blur(8px);
-      padding: 8px 12px;
+      padding: 6px 10px;
       border-radius: 6px;
       box-shadow: 0 4px 18px rgba(0,0,0,0.2);
       border: 1px solid #CBD5E1;
-      font-size: 10px;
+      font-size: 9.5px;
       z-index: 10;
     }}
     .legend-title {{
       font-weight: 700;
       color: #0F172A;
-      margin-bottom: 5px;
+      margin-bottom: 4px;
     }}
     .legend-item {{
       display: flex;
@@ -712,10 +747,10 @@ def create_interactive_maplibre_map(
       margin-bottom: 2px;
     }}
     .legend-box {{
-      width: 13px;
-      height: 9px;
+      width: 12px;
+      height: 8px;
       border: 1px solid #000;
-      margin-right: 6px;
+      margin-right: 5px;
       border-radius: 2px;
     }}
   </style>
@@ -902,11 +937,10 @@ def create_interactive_maplibre_map(
           {{ id: 'basemap-sat', type: 'raster', source: 'esri-sat', layout: {{ visibility: 'none' }} }}
         ]
       }},
-      bounds: [[-58.8, -9.9], [-46.0, 2.5]],
-      fitBoundsOptions: {{ padding: {{ top: 40, bottom: 40, left: 280, right: 40 }} }}
+      center: [-52.5, -3.8],
+      zoom: 5.5
     }});
 
-    // Garantir redimensionamento continuo
     const resizeHandler = () => {{
       map.resize();
     }};
@@ -921,7 +955,6 @@ def create_interactive_maplibre_map(
     map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
     map.addControl(new maplibregl.FullscreenControl(), 'bottom-right');
 
-    // Alternar painel de filtros
     const leftPanel = document.getElementById('left-panel');
     const btnCollapse = document.getElementById('btn-collapse');
     const btnExpand = document.getElementById('btn-expand');
@@ -962,7 +995,6 @@ def create_interactive_maplibre_map(
         data: ucsGeo
       }});
 
-      // Preenchimento com cor direta atribuida no GeoJSON
       map.addLayer({{
         id: 'ucs-fill',
         type: 'fill',
@@ -994,7 +1026,12 @@ def create_interactive_maplibre_map(
         filter: ['==', ['get', 'id'], -1]
       }});
 
-      // Popup flutuante simples no hover
+      // Enquadramento obrigatorio sobre o Para garantido
+      map.fitBounds([[-58.9, -9.9], [-46.0, 2.5]], {{
+        padding: {{ top: 30, bottom: 40, left: 270, right: 30 }},
+        duration: 0
+      }});
+
       const hoverPopup = new maplibregl.Popup({{
         closeButton: false,
         closeOnClick: false,
@@ -1034,7 +1071,6 @@ def create_interactive_maplibre_map(
         clearSelection();
       }});
 
-      // Filtros
       const selGer = document.getElementById('select-gerencia');
       const selGrp = document.getElementById('select-grupo');
       const selBase = document.getElementById('select-basemap');
@@ -1089,6 +1125,9 @@ def create_interactive_maplibre_map(
 
     map.on('load', setupLayers);
     if (map.isStyleLoaded()) setupLayers();
+    map.on('idle', () => {{
+      setupLayers();
+    }});
 
     function selectUC(id) {{
       map.setFilter('ucs-highlight', ['==', ['get', 'id'], id]);
@@ -1264,7 +1303,7 @@ def create_interactive_maplibre_map(
 
     return html_template
 
-def display_maplibre_in_notebook(df_series: pd.DataFrame, height: int = 700):
+def display_maplibre_in_notebook(df_series: pd.DataFrame, height: int = 750):
     """Gera e exibe o dashboard interativo MapLibre GL JS diretamente no notebook."""
     from IPython.display import HTML
     import html as py_html
