@@ -1,0 +1,30 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Caches
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Ambientes virtuais
+.venv/
+venv/
+env/
+
+# Dados pesados gerados localmente
+data/raw/*.zip
+data/raw/*.tar.gz
+data/output/*.tif
+data/output/*.nc
+data/output/*.feather
+
+# Segredos e variáveis de ambiente
+.env
+*.pem
+credentials.json
+secrets/
+
+# IDEs
+.vscode/
+.idea/
