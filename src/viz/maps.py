@@ -165,7 +165,7 @@ def plot_static_map(
     rotulos_vizinhos = [
         {"texto": "AMAZONAS", "pos": (-58.2, -4.5)},
         {"texto": "MATO GROSSO", "pos": (-54.5, -9.9)},
-        {"texto": "TOCANTINS", "pos": (-48.2, -7.5)},
+        {"texto": "TOCANTINS", "pos": (-48.2, -6.8)},
         {"texto": "MARANHÃO", "pos": (-46.2, -3.8)},
         {"texto": "AMAPÁ", "pos": (-51.8, 1.8)},
         {"texto": "RORAIMA", "pos": (-58.8, 2.2)},
@@ -194,7 +194,7 @@ def plot_static_map(
     ax_main.set_ylabel("Latitude", fontsize=9.2, fontweight="bold", color="#334155", labelpad=7)
 
     _draw_north_arrow(ax_main, x=-47.0, y=2.2, size=0.65)
-    _draw_scale_bar(ax_main, x0=-57.8, y0=-9.2, length_km=300.0, lat_ref=-4.0)
+    _draw_scale_bar(ax_main, x0=-49.0, y0=-9.3, length_km=300.0, lat_ref=-4.0)
 
     # 3. COLUNA DIREITA - PAINEL SUPERIOR: ENQUADRAMENTO GEOGRAFICO NO BRASIL
     ax_inset.set_facecolor("#E0F2FE")
@@ -310,22 +310,26 @@ def plot_static_map(
 
     return fig, ax_main
 
-from src.viz.maplibre_dashboard import create_interactive_maplibre_map
+from src.viz.leaflet_dashboard import create_interactive_leaflet_dashboard
+
+def create_interactive_maplibre_map(df_series: pd.DataFrame, save_html: bool = True, output_path: Optional[Path] = None) -> str:
+    """Gera o Mini Dashboard analitico interativo (alias compativel com Colab e Jupyter)."""
+    return create_interactive_leaflet_dashboard(df_series, save_html=save_html, output_path=output_path)
 
 def display_maplibre_in_notebook(df_series: pd.DataFrame, height: int = 750):
     """
-    Gera e exibe o Mini Dashboard analitico interativo MapLibre GL JS diretamente no notebook.
-    Utiliza iframe com srcdoc e permissoes completas para compatibilidade total no Google Colab e VS Code.
+    Gera e exibe o Mini Dashboard analitico interativo diretamente no notebook.
+    Utiliza iframe com srcdoc para compatibilidade total e imediata no Google Colab e VS Code.
     """
     from IPython.display import HTML
     import html as py_html
 
-    html_raw = create_interactive_maplibre_map(df_series, save_html=True)
+    html_raw = create_interactive_leaflet_dashboard(df_series, save_html=True)
     escaped = py_html.escape(html_raw, quote=True)
 
     return HTML(f'''
     <div style="width: 100%; height: {height}px; border: 1px solid #CBD5E1; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.15); background: #0F172A;">
-      <iframe srcdoc="{escaped}" style="width: 100%; height: 100%; border: none;" allow="fullscreen" sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>
+      <iframe srcdoc="{escaped}" style="width: 100%; height: 100%; border: none;" allow="fullscreen"></iframe>
     </div>
     ''')
 
