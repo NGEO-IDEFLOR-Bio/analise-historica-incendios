@@ -39,25 +39,30 @@ def build_notebook():
 Este caderno documenta a analise espaco-temporal de cicatrizes de fogo registradas entre 1985 e 2023 nas 29 Unidades de Conservacao Estaduais do Para sob gestao do IDEFLOR-Bio. Os objetivos compreendem o levantamento da dinamica estadual, a comparacao normalizada por area entre Gerencias Regionais, a segregacao por grupo do SNUC (Protecao Integral versus Uso Sustentavel) e a verificacao empirica do efeito do decreto de criacao de cada unidade sobre a taxa de queima territorial.
 """))
 
-    # 2. SUPORTE A EXECUCAO NO GOOGLE COLAB
-    cells.append(make_cell("code", """# Verificacao de ambiente e compatibilidade com execucao no Google Colab
+    # 2. INSTALACAO DE DEPENDENCIAS (GOOGLE COLAB)
+    cells.append(make_cell("code", """# Instalacao de dependencias (necessario na execucao via Google Colab)
+!pip install -q geopandas matplotlib seaborn ipywidgets
+"""))
+
+    # 3. SUPORTE A EXECUCAO E SINCRONIZACAO NO GOOGLE COLAB
+    cells.append(make_cell("code", """# Sincronizacao do repositorio e configuracao de diretorios no Google Colab
 import sys
+import os
 from pathlib import Path
 
 IN_COLAB = "google.colab" in sys.modules
 
 if IN_COLAB:
     print("Ambiente Google Colab detectado. Sincronizando repositorio oficial...")
-    if Path("analise-historica-incendios").exists():
-        %cd analise-historica-incendios
-        !git pull origin main
-    elif Path(".git").exists() and Path("src").exists():
-        !git pull origin main
-    else:
+    if not Path("analise-historica-incendios").exists() and not Path(".git").exists():
         !git clone https://github.com/NGEO-IDEFLOR-Bio/analise-historica-incendios.git
         %cd analise-historica-incendios
+    elif Path("analise-historica-incendios").exists():
+        %cd analise-historica-incendios
+        !git pull origin main
+    elif Path(".git").exists():
+        !git pull origin main
 
-    !pip install -q geopandas ipywidgets matplotlib seaborn
     ROOT_DIR = Path(".").resolve()
 else:
     ROOT_DIR = Path("..").resolve()
@@ -68,7 +73,7 @@ if str(ROOT_DIR) not in sys.path:
 print(f"Raiz do projeto configurada: {ROOT_DIR}")
 """))
 
-    # 3. SETUP E IMPORTACOES
+    # 4. SETUP E IMPORTACOES
     cells.append(make_cell("code", """import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
