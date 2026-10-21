@@ -53,5 +53,5 @@ def apply_ggplot_theme():
         # Resolução e proporções
         "figure.dpi": 150,
         "savefig.dpi": 300,
-        "savefig.bbox": "tight"
+        "savefig.bbox": None
     })

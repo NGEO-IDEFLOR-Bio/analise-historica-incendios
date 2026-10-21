@@ -4,12 +4,12 @@ Padronizado no layout cartografico oficial do NGEO/IDEFLOR-Bio (Prancha Paisagem
 - Cabecalho superior com titulo oficial
 - Painel cartografico principal (corpo esquerdo)
 - Coluna lateral direita:
-  * Painel de Enquadramento Geografico / Localizacao
+  * Painel de Enquadramento Geografico / Localizacao no Brasil (Para em destaque cinza)
   * Painel de Legenda Tematica estruturada
   * Carimbo Institucional (Metadados, Data, Projecao e Creditos)
-- Dashboard Interativo baseado em MapLibre GL JS com filtros por Gerencia Regional,
-  Grupo SNUC, inspecao temporal individualizada com graficos interativos 1985 a 2023,
-  sem dependencia de chaves pagas de tiles.
+- Mini Dashboard Interativo baseado em MapLibre GL JS com filtros por Gerencia Regional,
+  Grupo SNUC, enquadramento otimizado de todas as feicoes e modulo deslizante de inspecao
+  temporal com graficos interativos 1985 a 2023.
 """
 from typing import Optional, Dict, Any, Tuple
 from pathlib import Path
@@ -65,14 +65,15 @@ def plot_static_map(
 ) -> Tuple[plt.Figure, Any]:
     """
     Gera prancha cartografica oficial no padrao institucional do NGEO / IDEFLOR-Bio:
-    - Borda externa perimetral (neatline)
-    - Cabecalho horizontal superior (titulo institucional)
+    - Margens e moldura externa perimetral (neatline) com espacamento anti-corte
+    - Cabecalho horizontal superior (titulo institucional completo)
     - Painel principal esquerdo (mapa tematico com grade, limites e UCs)
     - Coluna lateral direita:
-      * Painel superior: Enquadramento geografico (America do Sul, Brasil e Para)
-      * Painel inferior: Legenda tematica estruturada com classes de queima e Carimbo Oficial
+      * Painel superior: Enquadramento geografico focado no Brasil (Para em cinza de destaque)
+      * Painel inferior: Legenda tematica estruturada e Carimbo Oficial do IDEFLOR-BIO
     """
     apply_ggplot_theme()
+    plt.rcParams["savefig.bbox"] = None
 
     gdf_ucs = gpd.read_file(GEOJSON_UCS)
     gdf_para = gpd.read_file(GEOJSON_PARA)
@@ -91,19 +92,19 @@ def plot_static_map(
 
     fig = plt.figure(figsize=figsize, facecolor="#FFFFFF")
 
-    # Borda externa geral (neatline)
+    # Moldura externa geral (neatline) posicionada com margem livre em relacao a borda da folha
     neatline = patches.Rectangle(
-        (0.012, 0.012), 0.976, 0.976,
+        (0.025, 0.025), 0.950, 0.950,
         transform=fig.transFigure,
         fill=False, edgecolor="#000000", linewidth=1.5
     )
     fig.patches.append(neatline)
 
-    # Paineis calibrados com distanciamento milimetrico anti-sobreposicao
-    ax_head = fig.add_axes([0.022, 0.908, 0.956, 0.068])
-    ax_main = fig.add_axes([0.065, 0.038, 0.635, 0.852])
-    ax_inset = fig.add_axes([0.718, 0.535, 0.260, 0.355])
-    ax_side = fig.add_axes([0.718, 0.038, 0.260, 0.480])
+    # Coordenadas internas rigorosamente calibradas para eliminar sobreposicao e cortes
+    ax_head = fig.add_axes([0.035, 0.895, 0.930, 0.065])
+    ax_main = fig.add_axes([0.082, 0.075, 0.630, 0.805])
+    ax_inset = fig.add_axes([0.730, 0.510, 0.235, 0.370])
+    ax_side = fig.add_axes([0.730, 0.040, 0.235, 0.450])
 
     for ax in [ax_head, ax_main, ax_inset, ax_side]:
         for spine in ax.spines.values():
@@ -137,7 +138,7 @@ def plot_static_map(
     gdf_ufs.plot(ax=ax_main, facecolor="#F8FAFC", edgecolor="#D1D5DB", linewidth=0.6, zorder=3)
     gdf_para.plot(ax=ax_main, facecolor="#FFFFFF", edgecolor="#000000", linewidth=1.8, zorder=4)
 
-    # Cores discretizadas em classes para precisao cartografica
+    # Classes discretizadas de pressao do fogo
     classes_cores = [
         {"min": 0.0, "max": 0.5, "cor": "#FFFFB2", "label": "0,00% a 0,50% (Baixíssima pressão)"},
         {"min": 0.5, "max": 2.0, "cor": "#FECC5C", "label": "0,51% a 2,00% (Baixa pressão)"},
@@ -179,7 +180,7 @@ def plot_static_map(
                 ha="center", va="center", zorder=6
             )
 
-    # Grade de coordenadas com rotulos
+    # Grade de coordenadas com rotulos limpos de Longitude e Latitude
     x_ticks = np.arange(-58, -44, 4)
     y_ticks = np.arange(-10, 4, 2)
     ax_main.set_xticks(x_ticks)
@@ -188,66 +189,72 @@ def plot_static_map(
     ax_main.set_yticklabels([f"{int(y)}°0'0\"N" if y > 0 else (f"{abs(int(y))}°0'0\"S" if y < 0 else "0°0'0\"") for y in y_ticks], fontsize=8, color="#000000")
     ax_main.grid(True, linestyle=":", color="#64748B", alpha=0.45, zorder=5)
 
+    ax_main.set_xlabel("Longitude", fontsize=9, fontweight="bold", color="#334155", labelpad=6)
+    ax_main.set_ylabel("Latitude", fontsize=9, fontweight="bold", color="#334155", labelpad=6)
+
     # Rosa dos ventos e escala grafica no painel principal
     _draw_north_arrow(ax_main, x=-47.0, y=2.2, size=0.65)
     _draw_scale_bar(ax_main, x0=-57.8, y0=-9.2, length_km=300.0, lat_ref=-4.0)
 
-    # 3. COLUNA DIREITA - PAINEL SUPERIOR: ENQUADRAMENTO GEOGRAFICO
+    # 3. COLUNA DIREITA - PAINEL SUPERIOR: ENQUADRAMENTO GEOGRAFICO FOCADO NO BRASIL
     ax_inset.set_facecolor("#E0F2FE")
-    gdf_sa.plot(ax=ax_inset, facecolor="#F1F5F9", edgecolor="#CBD5E1", linewidth=0.4)
-    gdf_ufs.plot(ax=ax_inset, facecolor="#E2E8F0", edgecolor="#CBD5E1", linewidth=0.3)
-    gdf_para.plot(ax=ax_inset, facecolor="#000000", edgecolor="#000000", linewidth=1.0)
+
+    xlim_br = (-74.5, -34.5)
+    ylim_br = (-34.0, 5.5)
+    ax_inset.set_xlim(xlim_br)
+    ax_inset.set_ylim(ylim_br)
+
+    gdf_sa.plot(ax=ax_inset, facecolor="#F8FAFC", edgecolor="#E2E8F0", linewidth=0.3)
+    gdf_ufs.plot(ax=ax_inset, facecolor="#F1F5F9", edgecolor="#CBD5E1", linewidth=0.4)
+    # Estado do Para destacado em cinza institucional (nao preto)
+    gdf_para.plot(ax=ax_inset, facecolor="#94A3B8", edgecolor="#475569", linewidth=0.8)
 
     rect_extent = patches.Rectangle(
         (xlim[0], ylim[0]), xlim[1] - xlim[0], ylim[1] - ylim[0],
         linewidth=1.2, edgecolor="#DC2626", facecolor="none", linestyle="-", zorder=10
     )
     ax_inset.add_patch(rect_extent)
-    ax_inset.set_xlim(-82, -34)
-    ax_inset.set_ylim(-56, 14)
+
     ax_inset.set_xticks([])
     ax_inset.set_yticks([])
 
-    ax_inset.text(-60, 5, "América do Sul", fontsize=8.5, fontstyle="italic", color="#334155")
-    ax_inset.text(-40, 0, "Oceano\nAtlântico", fontsize=8.5, fontstyle="italic", color="#0284C7", ha="center")
+    ax_inset.text(-50, 3.5, "Brasil", fontsize=9, fontweight="bold", color="#334155", ha="center")
+    ax_inset.text(-38, -12, "Oceano\nAtlântico", fontsize=8, fontstyle="italic", color="#0284C7", ha="center")
     ax_inset.text(-52, -4, "PA", fontsize=9, fontweight="bold", color="#FFFFFF", ha="center")
     ax_inset.text(-63, -4, "AM", fontsize=7.5, color="#64748B")
     ax_inset.text(-53, -13, "MT", fontsize=7.5, color="#64748B")
     ax_inset.text(-48, -10, "TO", fontsize=7.5, color="#64748B")
     ax_inset.text(-45, -5, "MA", fontsize=7.5, color="#64748B")
     ax_inset.text(-51, 1.5, "AP", fontsize=7.5, color="#64748B")
-    ax_inset.text(-61, 2, "RR", fontsize=7.5, color="#64748B")
 
     # 4. COLUNA DIREITA - PAINEL INFERIOR: LEGENDA E CARIMBO INSTITUCIONAL
     ax_side.set_facecolor("#FFFFFF")
     ax_side.set_xticks([])
     ax_side.set_yticks([])
 
-    # Divisoria interna da lateral (separando Legenda e Carimbo)
     ax_side.axhline(0.38, color="#000000", linewidth=1.2)
 
     # 4.1. SECAO DA LEGENDA
     ax_side.text(0.06, 0.94, "LEGENDA", fontsize=11, fontweight="bold", color="#000000", va="top")
 
-    y_leg = 0.86
+    y_leg = 0.85
     rect_pa = patches.Rectangle((0.06, y_leg - 0.015), 0.08, 0.03, facecolor="#FFFFFF", edgecolor="#000000", linewidth=1.6)
     ax_side.add_patch(rect_pa)
     ax_side.text(0.18, y_leg, "Limite Estadual do Pará", fontsize=8.5, va="center", color="#000000")
 
-    y_leg -= 0.06
+    y_leg -= 0.065
     ax_side.text(0.06, y_leg, "Taxa Média de Queima (% da UC / ano):", fontsize=8.8, fontweight="bold", color="#0F172A", va="center")
 
     for cl in classes_cores:
-        y_leg -= 0.058
+        y_leg -= 0.060
         box = patches.Rectangle((0.06, y_leg - 0.015), 0.08, 0.032, facecolor=cl["cor"], edgecolor="#000000", linewidth=0.8)
         ax_side.add_patch(box)
         ax_side.text(0.18, y_leg, cl["label"], fontsize=8.2, va="center", color="#000000")
 
     # 4.2. CARIMBO TECNICO / INSTITUCIONAL (RODAPE LATERAL)
-    # Vinculacao oficial: NGEO e setor independente vinculado diretamente ao Gabinete da Presidencia!
-    ax_side.text(0.06, 0.33, "Núcleo de Geotecnologias (NGEO)", fontsize=9.5, fontweight="bold", color="#000000")
-    ax_side.text(0.06, 0.28, "Gabinete da Presidência", fontsize=8.5, fontweight="bold", color="#1E293B")
-    ax_side.text(0.06, 0.23, "Instituto de Desenvolvimento Florestal e da Biodiversidade", fontsize=8.0, color="#475569")
+    # Identificacao institucional oficial exigida pelo NGEO/IDEFLOR-Bio
+    ax_side.text(0.06, 0.32, "Núcleo de Geotecnologias (NGEO)", fontsize=9.2, fontweight="bold", color="#000000")
+    ax_side.text(0.06, 0.24, "Instituto de Desenvolvimento Florestal e da\nBiodiversidade do Estado do Pará - IDEFLOR-BIO", fontsize=7.8, fontweight="bold", color="#1E293B", linespacing=1.25)
 
     info_text = (
         "Base Territorial: 29 UCs Estaduais Oficiais\n"
@@ -256,10 +263,10 @@ def plot_static_map(
         "Sistema Geodésico: SIRGAS 2000 | Projeção Geográfica\n"
         "Data de Elaboração: Outubro de 2026"
     )
-    ax_side.text(0.06, 0.04, info_text, fontsize=7.8, color="#334155", va="bottom", linespacing=1.35)
+    ax_side.text(0.06, 0.04, info_text, fontsize=7.6, color="#334155", va="bottom", linespacing=1.35)
 
     if save_path:
-        fig.savefig(save_path, dpi=300, facecolor="#FFFFFF", pad_inches=0.1, bbox_inches="tight")
+        fig.savefig(save_path, dpi=300, facecolor="#FFFFFF")
         print(f"Prancha cartografica oficial salva com sucesso em: {save_path}")
 
     return fig, ax_main
@@ -271,13 +278,11 @@ def create_interactive_maplibre_map(
 ) -> str:
     """
     Gera Mini Dashboard analitico interativo de alta performance com MapLibre GL JS:
-    - Base de dados geografica otimizada em 2D WGS84 (< 450 KB payload total)
-    - Camadas de satelite e cartografia mundial da Esri (sem limites de chaves ou bloqueios)
-    - Painel lateral esquerdo com filtros dinamicos (Gerencia Regional, Grupo SNUC) e KPIs consolidados
-    - Painel lateral direito de inspecao analitica detalhada da UC selecionada:
-      * Metadados cadastrais, categoria, gerencia e area oficial
-      * Comparativo pre vs. pos criacao com calculo de impacto
-      * Grafico Canvas interativo da evolucao anual 1985 a 2023 com tooltips e marco legal
+    - Base vetorial otimizada 2D WGS84 (< 300 KB) com cores tematicas diretas
+    - Enquadramento inicial perfeito com ajuste automatico de limites (fitBounds)
+    - Painel lateral esquerdo compacto (250px) com recolhimento para visualizacao desobstruida
+    - Modulo de inspecao analitica detalhada da UC selecionada que surge apenas sob demanda
+    - Grafico Canvas anual (1985 a 2023) com tooltips e marco legal de criacao
     """
     df_meta = pd.read_csv(CSV_METADATA_UCS)
     gdf_ucs = gpd.read_file(GEOJSON_UCS)
@@ -323,11 +328,24 @@ def create_interactive_maplibre_map(
             "taxa_media": round(float(grp_sorted["taxa_queimada_pct"].mean()), 2)
         }
 
+    # Atribuicao de cor direta por classe para garantir 100% de compatibilidade WebGL
+    def get_color(taxa: float) -> str:
+        if taxa <= 0.50:
+            return "#FFFFB2"
+        elif taxa <= 2.00:
+            return "#FECC5C"
+        elif taxa <= 4.00:
+            return "#FD8D3C"
+        elif taxa <= 7.00:
+            return "#F03B20"
+        return "#BD0026"
+
     ucs_features = []
     for _, row in gdf_ucs_simp.iterrows():
         uid = int(row["id"])
         meta = df_meta[df_meta["id"] == uid]
         st = series_by_uc.get(uid, {})
+        t_media = float(st.get("taxa_media", 0.0))
 
         geom_2d = json.loads(json.dumps(mapping(row["geometry"])))
         def strip_z(coords):
@@ -338,13 +356,14 @@ def create_interactive_maplibre_map(
 
         props = {
             "id": uid,
-            "nome": meta["nome"].values[0] if not meta.empty else row.get("name", ""),
-            "categoria": meta["categoria"].values[0] if not meta.empty else row.get("categoria", ""),
-            "grupo": meta["grupo"].values[0] if not meta.empty else row.get("grupo", ""),
-            "gerencia": meta["gerencia"].values[0] if not meta.empty else row.get("gerencia", ""),
+            "nome": meta["nome"].values[0] if not meta.empty else str(row.get("name", "")),
+            "categoria": meta["categoria"].values[0] if not meta.empty else str(row.get("categoria", "")),
+            "grupo": meta["grupo"].values[0] if not meta.empty else str(row.get("grupo", "")),
+            "gerencia": meta["gerencia"].values[0] if not meta.empty else str(row.get("gerencia", "")),
             "criacao": int(meta["ano_criacao"].values[0]) if not meta.empty and not pd.isna(meta["ano_criacao"].values[0]) else None,
             "area_ha": float(meta["area_ha"].values[0]) if not meta.empty else float(row.get("area_ha", 0)),
-            "taxa_media": st.get("taxa_media", 0.0),
+            "taxa_media": t_media,
+            "cor": get_color(t_media),
             "pico_ano": st.get("pico_ano", None),
             "pico_taxa": st.get("pico_taxa", 0.0),
             "taxa_pre": st.get("taxa_pre", None),
@@ -391,139 +410,212 @@ def create_interactive_maplibre_map(
     html, body {{ width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #0F172A; }}
     #map {{ width: 100%; height: 100%; position: absolute; top: 0; bottom: 0; left: 0; right: 0; }}
 
-    /* Painel Esquerdo: Filtros e KPIs Gerais */
+    /* Painel Esquerdo Compacto: Filtros e Totais */
     .left-panel {{
       position: absolute;
-      top: 14px;
-      left: 14px;
-      width: 310px;
-      background: rgba(255, 255, 255, 0.97);
-      backdrop-filter: blur(10px);
-      padding: 14px 16px;
+      top: 12px;
+      left: 12px;
+      width: 250px;
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(8px);
+      padding: 12px 14px;
       border-radius: 8px;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.22);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.22);
       border: 1px solid #CBD5E1;
       z-index: 10;
-      max-height: calc(100% - 28px);
+      transition: transform 0.25s ease;
+      max-height: calc(100% - 24px);
       overflow-y: auto;
     }}
+    .left-panel.collapsed {{
+      transform: translateX(-275px);
+    }}
+    .panel-header-row {{
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 4px;
+    }}
+    .btn-panel-toggle {{
+      background: #F1F5F9;
+      border: 1px solid #CBD5E1;
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #475569;
+      cursor: pointer;
+      line-height: 1.2;
+    }}
+    .btn-panel-toggle:hover {{
+      background: #E2E8F0;
+      color: #0F172A;
+    }}
+    .btn-expand-floating {{
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      z-index: 11;
+      background: #FFFFFF;
+      border: 1px solid #CBD5E1;
+      border-radius: 4px;
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #0F172A;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }}
+    .btn-expand-floating:hover {{
+      background: #F8FAFC;
+    }}
     .panel-brand {{
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 800;
-      letter-spacing: -0.2px;
       color: #0F172A;
       text-transform: uppercase;
-      line-height: 1.25;
+      line-height: 1.2;
     }}
     .panel-subbrand {{
-      font-size: 10.5px;
+      font-size: 9.8px;
       font-weight: 600;
       color: #0284C7;
       margin-top: 2px;
-      margin-bottom: 12px;
+      margin-bottom: 8px;
       border-bottom: 1px solid #E2E8F0;
-      padding-bottom: 8px;
+      padding-bottom: 6px;
     }}
     .filter-group {{
-      margin-bottom: 10px;
+      margin-bottom: 8px;
     }}
     .filter-label {{
-      font-size: 11px;
+      font-size: 10.5px;
       font-weight: 700;
       color: #334155;
-      margin-bottom: 4px;
+      margin-bottom: 3px;
       display: block;
     }}
     .filter-select {{
       width: 100%;
-      padding: 6px 8px;
-      font-size: 11.5px;
+      padding: 5px 6px;
+      font-size: 11px;
       border: 1px solid #CBD5E1;
       border-radius: 4px;
       background: #FFFFFF;
       color: #0F172A;
-      font-weight: 500;
-    }}
-    .filter-select:focus {{
-      outline: none;
-      border-color: #0284C7;
     }}
 
-    /* Cards de KPIs Gerais */
     .kpi-container {{
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 6px;
-      margin-top: 12px;
+      gap: 5px;
+      margin-top: 8px;
     }}
     .kpi-card {{
       background: #F8FAFC;
       border: 1px solid #E2E8F0;
-      border-radius: 6px;
-      padding: 8px 10px;
+      border-radius: 4px;
+      padding: 6px 8px;
     }}
     .kpi-label {{
-      font-size: 9.5px;
+      font-size: 8.8px;
       color: #64748B;
       font-weight: 600;
       text-transform: uppercase;
     }}
     .kpi-value {{
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 800;
       color: #0F172A;
       margin-top: 2px;
     }}
 
-    /* Painel Direito: Mini Dashboard da UC Selecionada */
+    /* Barra Superior de Orientacao */
+    .hint-pill {{
+      position: absolute;
+      top: 12px;
+      left: calc(260px + (100% - 260px) / 2);
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(6px);
+      color: #FFFFFF;
+      padding: 5px 14px;
+      border-radius: 20px;
+      font-size: 10.5px;
+      font-weight: 600;
+      z-index: 9;
+      pointer-events: none;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+      white-space: nowrap;
+    }}
+
+    /* Painel Direito Deslizante: Mini Dashboard da UC Selecionada */
     .right-inspector {{
       position: absolute;
-      top: 14px;
-      right: 14px;
-      width: 380px;
+      top: 12px;
+      right: 12px;
+      width: 360px;
       background: rgba(255, 255, 255, 0.98);
-      backdrop-filter: blur(12px);
-      padding: 16px 18px;
+      backdrop-filter: blur(10px);
+      padding: 14px 16px;
       border-radius: 8px;
-      box-shadow: 0 4px 28px rgba(0,0,0,0.25);
+      box-shadow: 0 4px 28px rgba(0,0,0,0.3);
       border: 1px solid #CBD5E1;
-      z-index: 10;
-      max-height: calc(100% - 28px);
+      z-index: 15;
+      display: none;
+      max-height: calc(100% - 24px);
       overflow-y: auto;
-      transition: all 0.25s ease;
+      animation: slideInRight 0.25s ease-out;
     }}
-    .inspector-placeholder {{
-      text-align: center;
-      padding: 24px 10px;
-      color: #64748B;
-      font-size: 12px;
-      line-height: 1.5;
+    @keyframes slideInRight {{
+      from {{ transform: translateX(380px); opacity: 0; }}
+      to {{ transform: translateX(0); opacity: 1; }}
     }}
-    .inspector-placeholder-icon {{
-      font-size: 28px;
-      margin-bottom: 8px;
-      color: #0284C7;
+    .inspector-header {{
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 6px;
     }}
     .uc-title {{
-      font-size: 14px;
+      font-size: 13.5px;
       font-weight: 800;
       color: #0F172A;
-      line-height: 1.3;
-      margin-bottom: 8px;
+      line-height: 1.25;
+    }}
+    .btn-close {{
+      background: #F1F5F9;
+      border: 1px solid #CBD5E1;
+      border-radius: 4px;
+      width: 24px;
+      height: 24px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 12px;
+      color: #475569;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-left: 8px;
+      flex-shrink: 0;
+    }}
+    .btn-close:hover {{
+      background: #E2E8F0;
+      color: #0F172A;
     }}
     .badge-bar {{
       display: flex;
       flex-wrap: wrap;
       gap: 4px;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }}
     .badge {{
-      font-size: 9.5px;
+      font-size: 9px;
       font-weight: 700;
-      padding: 2px 7px;
-      border-radius: 4px;
+      padding: 2px 6px;
+      border-radius: 3px;
       text-transform: uppercase;
-      letter-spacing: 0.3px;
+      letter-spacing: 0.2px;
     }}
     .badge-gerencia {{ background: #E0F2FE; color: #0369A1; border: 1px solid #BAE6FD; }}
     .badge-grupo {{ background: #FEF3C7; color: #B45309; border: 1px solid #FDE68A; }}
@@ -534,39 +626,39 @@ def create_interactive_maplibre_map(
       background: #F8FAFC;
       border: 1px solid #E2E8F0;
       border-radius: 6px;
-      padding: 10px 12px;
-      margin-bottom: 14px;
+      padding: 8px 10px;
+      margin-bottom: 10px;
     }}
     .impact-title {{
-      font-size: 10px;
+      font-size: 9.5px;
       font-weight: 700;
       text-transform: uppercase;
       color: #475569;
-      margin-bottom: 6px;
+      margin-bottom: 5px;
     }}
     .impact-row {{
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 4px;
-      font-size: 11.5px;
+      margin-bottom: 3px;
+      font-size: 11px;
     }}
     .diff-badge {{
-      font-size: 10px;
+      font-size: 9.5px;
       font-weight: 800;
       padding: 2px 6px;
-      border-radius: 4px;
+      border-radius: 3px;
     }}
     .diff-reduction {{ background: #DCFCE7; color: #166534; }}
     .diff-increase {{ background: #FEE2E2; color: #991B1B; }}
 
-    /* Grafico Dinamico Canvas */
+    /* Grafico Canvas */
     .chart-container {{
-      margin-top: 10px;
+      margin-top: 8px;
       position: relative;
     }}
     .chart-title {{
-      font-size: 10.5px;
+      font-size: 10px;
       font-weight: 700;
       color: #334155;
       margin-bottom: 4px;
@@ -575,7 +667,7 @@ def create_interactive_maplibre_map(
     }}
     #chart-canvas {{
       width: 100%;
-      height: 160px;
+      height: 150px;
       background: #FFFFFF;
       border: 1px solid #E2E8F0;
       border-radius: 4px;
@@ -584,14 +676,14 @@ def create_interactive_maplibre_map(
     .chart-tooltip {{
       position: absolute;
       display: none;
-      background: rgba(15, 23, 42, 0.92);
+      background: rgba(15, 23, 42, 0.94);
       color: #FFFFFF;
-      padding: 4px 8px;
+      padding: 4px 7px;
       border-radius: 4px;
-      font-size: 10px;
+      font-size: 9.5px;
       font-weight: 600;
       pointer-events: none;
-      z-index: 20;
+      z-index: 30;
       white-space: nowrap;
     }}
 
@@ -599,59 +691,53 @@ def create_interactive_maplibre_map(
     .legend {{
       position: absolute;
       bottom: 20px;
-      left: 14px;
-      background: rgba(255, 255, 255, 0.96);
+      left: 12px;
+      background: rgba(255, 255, 255, 0.95);
       backdrop-filter: blur(8px);
-      padding: 10px 14px;
+      padding: 8px 12px;
       border-radius: 6px;
-      box-shadow: 0 4px 18px rgba(0,0,0,0.18);
+      box-shadow: 0 4px 18px rgba(0,0,0,0.2);
       border: 1px solid #CBD5E1;
-      font-size: 10.5px;
+      font-size: 10px;
       z-index: 10;
     }}
     .legend-title {{
       font-weight: 700;
       color: #0F172A;
-      margin-bottom: 6px;
+      margin-bottom: 5px;
     }}
     .legend-item {{
       display: flex;
       align-items: center;
-      margin-bottom: 3px;
+      margin-bottom: 2px;
     }}
     .legend-box {{
-      width: 14px;
-      height: 10px;
+      width: 13px;
+      height: 9px;
       border: 1px solid #000;
       margin-right: 6px;
       border-radius: 2px;
-    }}
-
-    .btn-reset {{
-      margin-top: 10px;
-      width: 100%;
-      padding: 6px;
-      background: #F1F5F9;
-      border: 1px solid #CBD5E1;
-      border-radius: 4px;
-      font-size: 11px;
-      font-weight: 600;
-      color: #475569;
-      cursor: pointer;
-    }}
-    .btn-reset:hover {{
-      background: #E2E8F0;
-      color: #0F172A;
     }}
   </style>
 </head>
 <body>
   <div id="map"></div>
 
-  <!-- Painel Esquerdo: Filtros e Totais -->
-  <div class="left-panel">
-    <div class="panel-brand">Painel Analítico de Incêndios</div>
-    <div class="panel-subbrand">IDEFLOR-Bio | Núcleo de Geotecnologias</div>
+  <!-- Indicador Superior -->
+  <div class="hint-pill">Clique em qualquer Unidade de Conservação para inspecionar os indicadores históricos (1985–2023)</div>
+
+  <!-- Botao Flutuante para reabrir painel quando recolhido -->
+  <button id="btn-expand" class="btn-expand-floating" style="display: none;">&raquo; Filtros</button>
+
+  <!-- Painel Esquerdo Compacto -->
+  <div id="left-panel" class="left-panel">
+    <div class="panel-header-row">
+      <div>
+        <div class="panel-brand">Painel Analítico de Incêndios</div>
+        <div class="panel-subbrand">IDEFLOR-Bio | Núcleo de Geotecnologias</div>
+      </div>
+      <button id="btn-collapse" class="btn-panel-toggle" title="Recolher painel de filtros">&laquo;</button>
+    </div>
 
     <div class="filter-group">
       <label class="filter-label" for="select-gerencia">Gerência Regional:</label>
@@ -686,6 +772,13 @@ def create_interactive_maplibre_map(
       </select>
     </div>
 
+    <div class="filter-group">
+      <label class="filter-label" for="select-uc-direct">Selecionar UC Direta:</label>
+      <select id="select-uc-direct" class="filter-select">
+        <option value="">Selecione na lista...</option>
+      </select>
+    </div>
+
     <div class="kpi-container">
       <div class="kpi-card">
         <div class="kpi-label">UCs Filtradas</div>
@@ -702,73 +795,61 @@ def create_interactive_maplibre_map(
     </div>
   </div>
 
-  <!-- Painel Direito: Mini Dashboard Detalhado da UC -->
+  <!-- Painel Direito: Mini Dashboard Detalhado (Abre apenas sob clique) -->
   <div id="inspector" class="right-inspector">
-    <div id="inspector-empty" class="inspector-placeholder">
-      <div class="inspector-placeholder-icon">&#9679;</div>
-      <strong>Inspeção Temporal de Unidade</strong><br />
-      Clique em qualquer UC no mapa para inspecionar os indicadores históricos de queimada e o efeito do marco legal de criação (1985 a 2023).
-      <div style="margin-top: 14px; text-align: left;">
-        <label class="filter-label" for="select-uc-direct">Ou selecione diretamente:</label>
-        <select id="select-uc-direct" class="filter-select">
-          <option value="">Selecione uma UC...</option>
-        </select>
+    <div class="inspector-header">
+      <div id="uc-name" class="uc-title">Nome da UC</div>
+      <button id="btn-close-inspect" class="btn-close" title="Fechar Detalhes">&times;</button>
+    </div>
+
+    <div class="badge-bar">
+      <span id="badge-cat" class="badge badge-cat">Categoria</span>
+      <span id="badge-ger" class="badge badge-gerencia">Gerência</span>
+      <span id="badge-grp" class="badge badge-grupo">Grupo</span>
+    </div>
+
+    <div class="kpi-container" style="margin-bottom: 10px;">
+      <div class="kpi-card">
+        <div class="kpi-label">Área Oficial</div>
+        <div id="uc-area" class="kpi-value">0 ha</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Ano Criação</div>
+        <div id="uc-criacao" class="kpi-value">-</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Taxa Média Anual</div>
+        <div id="uc-taxa-media" class="kpi-value" style="color: #EA580C;">0,00%</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Pico Histórico</div>
+        <div id="uc-pico" class="kpi-value">0,00%</div>
       </div>
     </div>
 
-    <div id="inspector-content" style="display: none;">
-      <div id="uc-name" class="uc-title">Nome da UC</div>
-      <div class="badge-bar">
-        <span id="badge-cat" class="badge badge-cat">Categoria</span>
-        <span id="badge-ger" class="badge badge-gerencia">Gerência</span>
-        <span id="badge-grp" class="badge badge-grupo">Grupo</span>
+    <div class="impact-box">
+      <div class="impact-title">Marco Temporal de Criação Legal</div>
+      <div class="impact-row">
+        <span>Média Pré-Criação:</span>
+        <strong id="val-pre">-</strong>
       </div>
-
-      <div class="kpi-container" style="margin-bottom: 12px;">
-        <div class="kpi-card">
-          <div class="kpi-label">Área Oficial</div>
-          <div id="uc-area" class="kpi-value">0 ha</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Ano Criação</div>
-          <div id="uc-criacao" class="kpi-value">-</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Taxa Média Anual</div>
-          <div id="uc-taxa-media" class="kpi-value" style="color: #EA580C;">0,00%</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Pico Histórico</div>
-          <div id="uc-pico" class="kpi-value">0,00%</div>
-        </div>
+      <div class="impact-row">
+        <span>Média Pós-Criação:</span>
+        <strong id="val-pos">-</strong>
       </div>
-
-      <div class="impact-box">
-        <div class="impact-title">Marco Temporal de Criação Legal</div>
-        <div class="impact-row">
-          <span>Média Pré-Criação:</span>
-          <strong id="val-pre">-</strong>
-        </div>
-        <div class="impact-row">
-          <span>Média Pós-Criação:</span>
-          <strong id="val-pos">-</strong>
-        </div>
-        <div class="impact-row" style="margin-top: 4px; padding-top: 4px; border-top: 1px dashed #CBD5E1;">
-          <span>Variação Observada:</span>
-          <span id="badge-diff" class="diff-badge">-</span>
-        </div>
+      <div class="impact-row" style="margin-top: 3px; padding-top: 3px; border-top: 1px dashed #CBD5E1;">
+        <span>Variação Observada:</span>
+        <span id="badge-diff" class="diff-badge">-</span>
       </div>
+    </div>
 
-      <div class="chart-container">
-        <div class="chart-title">
-          <span>Evolução Anual da Taxa (% da UC)</span>
-          <span style="font-size: 9px; color: #64748B;">1985–2023</span>
-        </div>
-        <canvas id="chart-canvas" width="344" height="160"></canvas>
-        <div id="chart-tooltip" class="chart-tooltip"></div>
+    <div class="chart-container">
+      <div class="chart-title">
+        <span>Evolução Anual da Taxa (% da UC)</span>
+        <span style="font-size: 8.5px; color: #64748B;">1985–2023</span>
       </div>
-
-      <button id="btn-close-inspect" class="btn-reset">Fechar Detalhes da UC</button>
+      <canvas id="chart-canvas" width="326" height="150"></canvas>
+      <div id="chart-tooltip" class="chart-tooltip"></div>
     </div>
   </div>
 
@@ -821,19 +902,45 @@ def create_interactive_maplibre_map(
           {{ id: 'basemap-sat', type: 'raster', source: 'esri-sat', layout: {{ visibility: 'none' }} }}
         ]
       }},
-      center: [-52.5, -3.8],
-      zoom: 5.6
+      bounds: [[-58.8, -9.9], [-46.0, 2.5]],
+      fitBoundsOptions: {{ padding: {{ top: 40, bottom: 40, left: 280, right: 40 }} }}
     }});
 
-    window.addEventListener('resize', () => map.resize());
-    setTimeout(() => map.resize(), 300);
+    // Garantir redimensionamento continuo
+    const resizeHandler = () => {{
+      map.resize();
+    }};
+    window.addEventListener('resize', resizeHandler);
+    if (window.ResizeObserver) {{
+      new ResizeObserver(resizeHandler).observe(document.getElementById('map'));
+    }}
+    setTimeout(resizeHandler, 250);
+    setTimeout(resizeHandler, 750);
+    setTimeout(resizeHandler, 1500);
 
-    map.addControl(new maplibregl.NavigationControl(), 'top-left');
-    map.addControl(new maplibregl.FullscreenControl(), 'top-left');
+    map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
+    map.addControl(new maplibregl.FullscreenControl(), 'bottom-right');
 
-    let currentSelectedId = null;
+    // Alternar painel de filtros
+    const leftPanel = document.getElementById('left-panel');
+    const btnCollapse = document.getElementById('btn-collapse');
+    const btnExpand = document.getElementById('btn-expand');
 
-    map.on('load', () => {{
+    btnCollapse.addEventListener('click', () => {{
+      leftPanel.classList.add('collapsed');
+      btnExpand.style.display = 'block';
+      setTimeout(resizeHandler, 260);
+    }});
+
+    btnExpand.addEventListener('click', () => {{
+      leftPanel.classList.remove('collapsed');
+      btnExpand.style.display = 'none';
+      setTimeout(resizeHandler, 260);
+    }});
+
+    function setupLayers() {{
+      if (map.getSource('para-border')) return;
+
       map.addSource('para-border', {{
         type: 'geojson',
         data: paraGeo
@@ -855,20 +962,13 @@ def create_interactive_maplibre_map(
         data: ucsGeo
       }});
 
+      // Preenchimento com cor direta atribuida no GeoJSON
       map.addLayer({{
         id: 'ucs-fill',
         type: 'fill',
         source: 'ucs-ideflor',
         paint: {{
-          'fill-color': [
-            'step',
-            ['to-number', ['get', 'taxa_media'], 0.0],
-            '#FFFFB2',
-            0.51, '#FECC5C',
-            2.01, '#FD8D3C',
-            4.01, '#F03B20',
-            7.01, '#BD0026'
-          ],
+          'fill-color': ['get', 'cor'],
           'fill-opacity': 0.88
         }}
       }});
@@ -879,7 +979,7 @@ def create_interactive_maplibre_map(
         source: 'ucs-ideflor',
         paint: {{
           'line-color': '#000000',
-          'line-width': 0.8
+          'line-width': 0.9
         }}
       }});
 
@@ -891,15 +991,30 @@ def create_interactive_maplibre_map(
           'line-color': '#000000',
           'line-width': 3.5
         }},
-        filter: ['==', ['to-number', ['get', 'id']], -1]
+        filter: ['==', ['get', 'id'], -1]
       }});
 
-      map.on('mousemove', 'ucs-fill', () => {{
+      // Popup flutuante simples no hover
+      const hoverPopup = new maplibregl.Popup({{
+        closeButton: false,
+        closeOnClick: false,
+        offset: 12
+      }});
+
+      map.on('mousemove', 'ucs-fill', (e) => {{
         map.getCanvas().style.cursor = 'pointer';
+        if (e.features && e.features.length > 0) {{
+          const p = e.features[0].properties;
+          hoverPopup
+            .setLngLat(e.lngLat)
+            .setHTML(`<strong>${{p.nome}}</strong><br/><span style="color:#64748B;">Gerência: ${{p.gerencia}} | Média: ${{Number(p.taxa_media).toFixed(2)}}%</span>`)
+            .addTo(map);
+        }}
       }});
 
       map.on('mouseleave', 'ucs-fill', () => {{
         map.getCanvas().style.cursor = '';
+        hoverPopup.remove();
       }});
 
       map.on('click', 'ucs-fill', (e) => {{
@@ -919,6 +1034,7 @@ def create_interactive_maplibre_map(
         clearSelection();
       }});
 
+      // Filtros
       const selGer = document.getElementById('select-gerencia');
       const selGrp = document.getElementById('select-grupo');
       const selBase = document.getElementById('select-basemap');
@@ -969,19 +1085,21 @@ def create_interactive_maplibre_map(
           map.setLayoutProperty('basemap-gray', 'visibility', 'visible');
         }}
       }});
-    }});
+    }}
+
+    map.on('load', setupLayers);
+    if (map.isStyleLoaded()) setupLayers();
 
     function selectUC(id) {{
-      currentSelectedId = id;
-      map.setFilter('ucs-highlight', ['==', ['to-number', ['get', 'id']], id]);
+      map.setFilter('ucs-highlight', ['==', ['get', 'id'], id]);
 
       const feat = ucsGeo.features.find(f => f.properties.id === id);
       if (!feat) return;
       const p = feat.properties;
       const s = seriesData[id] || {{}};
 
-      document.getElementById('inspector-empty').style.display = 'none';
-      document.getElementById('inspector-content').style.display = 'block';
+      const inspector = document.getElementById('inspector');
+      inspector.style.display = 'block';
 
       document.getElementById('uc-name').innerText = p.nome;
       document.getElementById('badge-cat').innerText = p.categoria || 'UC';
@@ -1019,10 +1137,8 @@ def create_interactive_maplibre_map(
     }}
 
     function clearSelection() {{
-      currentSelectedId = null;
-      map.setFilter('ucs-highlight', ['==', ['to-number', ['get', 'id']], -1]);
-      document.getElementById('inspector-content').style.display = 'none';
-      document.getElementById('inspector-empty').style.display = 'block';
+      map.setFilter('ucs-highlight', ['==', ['get', 'id'], -1]);
+      document.getElementById('inspector').style.display = 'none';
       selDirect.value = '';
     }}
 
@@ -1041,10 +1157,10 @@ def create_interactive_maplibre_map(
       const n = anos.length;
       const maxTaxa = Math.max(...taxas, 1.0);
 
-      const paddingLeft = 32;
-      const paddingRight = 10;
+      const paddingLeft = 30;
+      const paddingRight = 8;
       const paddingTop = 14;
-      const paddingBottom = 22;
+      const paddingBottom = 20;
 
       const plotW = width - paddingLeft - paddingRight;
       const plotH = height - paddingTop - paddingBottom;
@@ -1058,7 +1174,7 @@ def create_interactive_maplibre_map(
         ctx.moveTo(paddingLeft, yPos);
         ctx.lineTo(width - paddingRight, yPos);
         ctx.fillStyle = '#64748B';
-        ctx.font = '8.5px sans-serif';
+        ctx.font = '8px sans-serif';
         ctx.textAlign = 'right';
         ctx.fillText(yVal.toFixed(1) + '%', paddingLeft - 4, yPos + 3);
       }}
@@ -1088,9 +1204,9 @@ def create_interactive_maplibre_map(
 
         if (i === 0 || i === n - 1 || ano === anoCriacao) {{
           ctx.fillStyle = '#475569';
-          ctx.font = '8px sans-serif';
+          ctx.font = '7.5px sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText(ano, xPos + barW / 2, height - 6);
+          ctx.fillText(ano, xPos + barW / 2, height - 5);
         }}
       }}
 
@@ -1100,7 +1216,7 @@ def create_interactive_maplibre_map(
           const xMark = paddingLeft + idx * step + step / 2;
           ctx.setLineDash([3, 2]);
           ctx.strokeStyle = '#0284C7';
-          ctx.lineWidth = 1.5;
+          ctx.lineWidth = 1.4;
           ctx.beginPath();
           ctx.moveTo(xMark, paddingTop);
           ctx.lineTo(xMark, paddingTop + plotH);
@@ -1108,7 +1224,7 @@ def create_interactive_maplibre_map(
           ctx.setLineDash([]);
 
           ctx.fillStyle = '#0284C7';
-          ctx.font = 'bold 8px sans-serif';
+          ctx.font = 'bold 7.5px sans-serif';
           ctx.textAlign = 'center';
           ctx.fillText('Criação', xMark, paddingTop - 4);
         }}
@@ -1125,8 +1241,8 @@ def create_interactive_maplibre_map(
             const ha = has[i];
             const tt = document.getElementById('chart-tooltip');
             tt.style.display = 'block';
-            tt.style.left = (e.clientX - rect.left - 40) + 'px';
-            tt.style.top = (e.clientY - rect.top - 32) + 'px';
+            tt.style.left = (e.clientX - rect.left - 30) + 'px';
+            tt.style.top = (e.clientY - rect.top - 28) + 'px';
             tt.innerHTML = `<strong>${{ano}}</strong>: ${{val.toFixed(2)}}% (${{ha.toLocaleString('pt-BR')}} ha)`;
           }}
         }}
