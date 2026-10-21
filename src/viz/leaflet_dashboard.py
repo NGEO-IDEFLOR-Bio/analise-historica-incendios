@@ -1,12 +1,12 @@
 """
-Modulo de geracao do Mini Dashboard Cartografico Interativo baseado em Leaflet (SVG/Canvas 2D):
+Modulo de geracao do Mini Dashboard Cartografico e Analitico Completo (Leaflet 2D + Chart.js):
 - 100% compativel com Google Colab, JupyterLab, VS Code e navegadores locais
-- Estilizacao escura executiva moderna (glassmorphism) exatamente no padrao visual desejado
-- Camadas gratuitas da Esri sem bloqueio ou cobranca de chaves de API (Esri Canvas Claro e Esri Satelite)
-- Filtros funcionais instantaneos por Gerencia Regional e Grupo SNUC
-- Recalculo em tempo real do painel de controle (area filtrada, taxa media, contagem de UCs)
-- Modulo deslizante lateral de inspecao analitica com grafico Canvas da serie historica 1985-2023 e marco legal
-- Tooltips ricas no cursor e selecao direta de UC
+- Grafico 1: Serie Temporal Anual da UC selecionada (com barras coloridas antes e depois do decreto de criacao)
+- Grafico 2: Painel de Contexto Geral no painel de filtros (Grafico Dinamico de Evolucao Anual das UCs filtradas)
+- Grafico 3: Grafico de Ranking Horizontal das Top 5 UCs com maior pressao de fogo
+- Filtros em tempo real por Gerencia Regional e Grupo SNUC
+- Recalculo instantaneo de indicadores (Area Total, Taxa Media Ponderada, Contagem de UCs)
+- Tooltips ricas no cursor e zoom automatico na UC selecionada
 """
 from typing import Optional, Dict, Any
 from pathlib import Path
@@ -94,6 +94,7 @@ def create_interactive_leaflet_dashboard(
     }
     ucs_geo = {"type": "FeatureCollection", "features": ucs_features}
 
+    # Series individuais por UC
     series_by_uc = {}
     for uid, group in df_series.groupby("uc_id"):
         uid = int(uid)
@@ -119,9 +120,19 @@ def create_interactive_leaflet_dashboard(
             "pos_taxa": pos_taxa
         }
 
+    # Serie temporal agregada anual geral (1985 a 2023)
+    anual_geral = df_series.groupby("ano").agg(
+        taxa_media=("taxa_queimada_pct", "mean"),
+        burned_ha_sum=("burned_ha", "sum")
+    ).reset_index()
+    geral_anos = [int(a) for a in anual_geral["ano"].tolist()]
+    geral_taxas = [round(float(v), 2) for v in anual_geral["taxa_media"].tolist()]
+
     clean_ucs_str = json.dumps(ucs_geo, ensure_ascii=False)
     clean_para_str = json.dumps(para_geo, ensure_ascii=False)
     series_json_str = json.dumps(series_by_uc, ensure_ascii=False)
+    geral_anos_str = json.dumps(geral_anos)
+    geral_taxas_str = json.dumps(geral_taxas)
 
     html_template = f"""<!DOCTYPE html>
 <html lang="pt-BR">
@@ -132,18 +143,20 @@ def create_interactive_leaflet_dashboard(
   
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Chart.js para renderizacao de graficos interativos de alta definicao -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 
   <style>
     * {{ box-sizing: border-box; margin: 0; padding: 0; }}
     html, body {{ width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #0F172A; }}
     #map {{ width: 100%; height: 100%; position: absolute; top: 0; bottom: 0; left: 0; right: 0; }}
 
-    /* Painel Esquerdo Compacto: Filtros e Totais */
+    /* Painel Esquerdo Compacto: Filtros, Totais e Grafico Geral */
     .left-panel {{
       position: absolute;
       top: 14px;
       left: 14px;
-      width: 255px;
+      width: 285px;
       background: rgba(255, 255, 255, 0.96);
       backdrop-filter: blur(8px);
       padding: 12px 14px;
@@ -156,7 +169,7 @@ def create_interactive_leaflet_dashboard(
       overflow-y: auto;
     }}
     .left-panel.collapsed {{
-      transform: translateX(-280px);
+      transform: translateX(-310px);
     }}
     .panel-toggle-btn {{
       position: absolute;
@@ -181,7 +194,7 @@ def create_interactive_leaflet_dashboard(
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
       padding-bottom: 6px;
       border-bottom: 1px solid #E2E8F0;
     }}
@@ -200,14 +213,14 @@ def create_interactive_leaflet_dashboard(
       padding: 2px 4px;
     }}
     .filter-group {{
-      margin-bottom: 9px;
+      margin-bottom: 7px;
     }}
     .filter-label {{
       display: block;
-      font-size: 10.5px;
+      font-size: 10px;
       font-weight: 700;
       color: #334155;
-      margin-bottom: 3px;
+      margin-bottom: 2px;
       text-transform: uppercase;
       letter-spacing: 0.3px;
     }}
@@ -226,25 +239,48 @@ def create_interactive_leaflet_dashboard(
       border: 1px solid #E2E8F0;
       border-radius: 6px;
       padding: 8px 10px;
-      margin-top: 10px;
+      margin-top: 8px;
     }}
     .stats-row {{
       display: flex;
       justify-content: space-between;
       font-size: 11px;
-      margin-bottom: 4px;
+      margin-bottom: 3px;
       color: #334155;
     }}
     .stats-row strong {{
       color: #0F172A;
     }}
 
-    /* Gaveta Direita: Inspecao Analitica sob Demanda */
+    /* Container de Grafico Secundario no Painel */
+    .mini-chart-box {{
+      margin-top: 10px;
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      border-radius: 6px;
+      padding: 8px;
+    }}
+    .mini-chart-title {{
+      font-size: 10px;
+      font-weight: 700;
+      color: #334155;
+      margin-bottom: 4px;
+      display: flex;
+      justify-content: space-between;
+      text-transform: uppercase;
+    }}
+    .chart-container-panel {{
+      position: relative;
+      height: 100px;
+      width: 100%;
+    }}
+
+    /* Gaveta Direita: Inspecao Analitica Detalhada da UC */
     .inspector-panel {{
       position: absolute;
       top: 14px;
       right: 14px;
-      width: 330px;
+      width: 360px;
       max-height: calc(100% - 28px);
       background: rgba(255, 255, 255, 0.98);
       backdrop-filter: blur(10px);
@@ -258,15 +294,15 @@ def create_interactive_leaflet_dashboard(
       animation: slideIn 0.22s ease-out;
     }}
     @keyframes slideIn {{
-      from {{ transform: translateX(350px); opacity: 0; }}
+      from {{ transform: translateX(380px); opacity: 0; }}
       to {{ transform: translateX(0); opacity: 1; }}
     }}
     .inspector-header {{
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      margin-bottom: 10px;
-      padding-bottom: 8px;
+      margin-bottom: 8px;
+      padding-bottom: 6px;
       border-bottom: 1px solid #E2E8F0;
     }}
     .inspector-title {{
@@ -301,7 +337,7 @@ def create_interactive_leaflet_dashboard(
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 6px;
-      margin: 10px 0;
+      margin: 8px 0;
     }}
     .metric-box {{
       background: #F8FAFC;
@@ -311,7 +347,7 @@ def create_interactive_leaflet_dashboard(
       text-align: center;
     }}
     .metric-box .val {{
-      font-size: 14px;
+      font-size: 13.5px;
       font-weight: 800;
       color: #0F172A;
     }}
@@ -322,9 +358,9 @@ def create_interactive_leaflet_dashboard(
       font-weight: 600;
     }}
 
-    /* Grafico de Barras Canvas */
+    /* Grafico Principal da UC (Chart.js) */
     .chart-box {{
-      margin-top: 10px;
+      margin-top: 8px;
       background: #FFFFFF;
       border: 1px solid #E2E8F0;
       border-radius: 6px;
@@ -337,29 +373,12 @@ def create_interactive_leaflet_dashboard(
       margin-bottom: 6px;
       display: flex;
       justify-content: space-between;
-    }}
-    #chart-canvas {{
-      width: 100%;
-      height: 120px;
-      display: block;
-    }}
-    .chart-legend {{
-      display: flex;
-      justify-content: center;
-      gap: 12px;
-      margin-top: 6px;
-      font-size: 9.5px;
-      color: #475569;
-    }}
-    .chart-leg-item {{
-      display: flex;
       align-items: center;
-      gap: 4px;
     }}
-    .chart-leg-box {{
-      width: 8px;
-      height: 8px;
-      border-radius: 1px;
+    .chart-container-uc {{
+      position: relative;
+      height: 140px;
+      width: 100%;
     }}
 
     /* Orientacao Superior Centralizada */
@@ -368,14 +387,14 @@ def create_interactive_leaflet_dashboard(
       top: 14px;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(15, 23, 42, 0.85);
+      background: rgba(15, 23, 42, 0.88);
       color: #F8FAFC;
-      padding: 5px 12px;
+      padding: 6px 14px;
       border-radius: 20px;
-      font-size: 10.5px;
-      font-weight: 500;
+      font-size: 11px;
+      font-weight: 600;
       letter-spacing: 0.2px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.25);
       pointer-events: none;
       z-index: 998;
       white-space: nowrap;
@@ -413,7 +432,6 @@ def create_interactive_leaflet_dashboard(
       border-radius: 2px;
     }}
 
-    /* Estilizacao das Tooltips Leaflet */
     .leaflet-tooltip-custom {{
       background: rgba(15, 23, 42, 0.92) !important;
       color: #FFFFFF !important;
@@ -430,9 +448,9 @@ def create_interactive_leaflet_dashboard(
   <div id="map"></div>
 
   <!-- Orientacao no topo -->
-  <div class="top-hint">Clique em uma Unidade de Conservação para inspecionar a série histórica (1985–2023)</div>
+  <div class="top-hint">Selecione uma UC no mapa ou na lista para inspecionar gráficos e métricas</div>
 
-  <!-- Painel Esquerdo: Filtros e Totais -->
+  <!-- Painel Esquerdo: Filtros, Totais e Grafico Geral do Grupo -->
   <div id="left-panel" class="left-panel">
     <div class="panel-header">
       <div class="panel-title">PAINEL ANALÍTICO</div>
@@ -484,11 +502,22 @@ def create_interactive_leaflet_dashboard(
       <div class="stats-row"><span>Área Total:</span><strong id="stat-area">21,4 mi ha</strong></div>
       <div class="stats-row"><span>Taxa Média Grupo:</span><strong id="stat-media">1,82% / ano</strong></div>
     </div>
+
+    <!-- Grafico 1 no Painel Lateral: Evolucao Temporal Media do Grupo Filtrado -->
+    <div class="mini-chart-box">
+      <div class="mini-chart-title">
+        <span>Evolução Anual Média (%)</span>
+        <span style="font-size: 8.5px; color: #64748B;">1985–2023</span>
+      </div>
+      <div class="chart-container-panel">
+        <canvas id="group-chart-canvas"></canvas>
+      </div>
+    </div>
   </div>
 
   <button id="btn-expand" class="panel-toggle-btn">Filtros »</button>
 
-  <!-- Gaveta Lateral Direita: Inspecao Detalhada da UC -->
+  <!-- Gaveta Lateral Direita: Inspecao Detalhada da UC Selecionada com Graficos -->
   <div id="inspector" class="inspector-panel">
     <div class="inspector-header">
       <div>
@@ -520,20 +549,23 @@ def create_interactive_leaflet_dashboard(
       </div>
     </div>
 
+    <!-- Grafico 2: Serie Historica Completa da UC com Marco Legal -->
     <div class="chart-box">
       <div class="chart-title">
-        <span>Série Histórica Anual (1985–2023)</span>
-        <span id="insp-marco-lbl" style="font-size: 9.5px; color: #DC2626; font-weight: 600;"></span>
+        <span>Série Histórica Anual de Queima (% UC)</span>
+        <span id="insp-marco-lbl" style="font-size: 9.5px; color: #DC2626; font-weight: 700;"></span>
       </div>
-      <canvas id="chart-canvas" width="600" height="240"></canvas>
-      <div class="chart-legend">
-        <div class="chart-leg-item"><div class="chart-leg-box" style="background: #2563EB;"></div><span>Antes do Decreto</span></div>
-        <div class="chart-leg-item"><div class="chart-leg-box" style="background: #DC2626;"></div><span>Após o Decreto</span></div>
+      <div class="chart-container-uc">
+        <canvas id="uc-chart-canvas"></canvas>
+      </div>
+      <div style="display: flex; justify-content: center; gap: 14px; margin-top: 6px; font-size: 9.5px; color: #475569;">
+        <div style="display: flex; align-items: center; gap: 4px;"><span style="width: 8px; height: 8px; background: #2563EB; border-radius: 1px;"></span>Antes do Decreto</div>
+        <div style="display: flex; align-items: center; gap: 4px;"><span style="width: 8px; height: 8px; background: #DC2626; border-radius: 1px;"></span>Após o Decreto</div>
       </div>
     </div>
 
-    <div id="insp-marco-box" class="stats-card" style="margin-top: 10px; font-size: 10.5px;">
-      <div style="font-weight: 700; color: #0F172A; margin-bottom: 3px;">Impacto do Marco Legal:</div>
+    <div id="insp-marco-box" class="stats-card" style="margin-top: 8px; font-size: 10.5px;">
+      <div style="font-weight: 700; color: #0F172A; margin-bottom: 3px;">Avaliação do Marco Legal:</div>
       <div class="stats-row"><span>Média Pré-Criação:</span><strong id="insp-pre-taxa">-</strong></div>
       <div class="stats-row"><span>Média Pós-Criação:</span><strong id="insp-pos-taxa">-</strong></div>
     </div>
@@ -553,8 +585,10 @@ def create_interactive_leaflet_dashboard(
     const ucsGeo = {clean_ucs_str};
     const paraGeo = {clean_para_str};
     const seriesData = {series_json_str};
+    const geralAnos = {geral_anos_str};
+    const geralTaxas = {geral_taxas_str};
 
-    // Preencher select direto de UCs ordenado
+    // Preencher select direto de UCs ordenado alfabeticamente
     const selDirect = document.getElementById('select-uc-direct');
     ucsGeo.features
       .slice()
@@ -612,7 +646,6 @@ def create_interactive_leaflet_dashboard(
       onEachFeature: function(feature, layer) {{
         layerMap[feature.properties.id] = layer;
         
-        // Tooltip suave
         layer.bindTooltip(
           `<strong>${{feature.properties.nome}}</strong><br/><span style="color:#94A3B8;">Gerência: ${{feature.properties.gerencia}} | Média: ${{feature.properties.taxa_media.toFixed(2)}}%</span>`,
           {{ className: 'leaflet-tooltip-custom', sticky: true }}
@@ -626,11 +659,10 @@ def create_interactive_leaflet_dashboard(
 
     // Ajustar enquadramento inicial
     map.fitBounds([[-9.9, -58.9], [2.5, -46.0]], {{
-      paddingTopLeft: [270, 20],
+      paddingTopLeft: [290, 20],
       paddingBottomRight: [20, 20]
     }});
 
-    // Redimensionamento automatico
     window.addEventListener('resize', () => map.invalidateSize());
     setTimeout(() => map.invalidateSize(), 300);
 
@@ -648,6 +680,66 @@ def create_interactive_leaflet_dashboard(
       setTimeout(() => map.invalidateSize(), 260);
     }});
 
+    // Instancias globais dos graficos Chart.js
+    let groupChart = null;
+    let ucChart = null;
+
+    function initGroupChart(labels, data) {{
+      const ctx = document.getElementById('group-chart-canvas').getContext('2d');
+      if (groupChart) groupChart.destroy();
+
+      groupChart = new Chart(ctx, {{
+        type: 'line',
+        data: {{
+          labels: labels,
+          datasets: [{{
+            label: 'Taxa Média (%)',
+            data: data,
+            borderColor: '#0284C7',
+            backgroundColor: 'rgba(2, 132, 199, 0.12)',
+            fill: true,
+            tension: 0.25,
+            borderWidth: 1.8,
+            pointRadius: 0,
+            pointHoverRadius: 4
+          }}]
+        }},
+        options: {{
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {{
+            legend: {{ display: false }},
+            tooltip: {{
+              callbacks: {{
+                label: (ctx) => `${{ctx.raw.toFixed(2)}}% da área`
+              }}
+            }}
+          }},
+          scales: {{
+            x: {{
+              ticks: {{
+                maxTicksLimit: 6,
+                font: {{ size: 9 }},
+                color: '#64748B'
+              }},
+              grid: {{ display: false }}
+            }},
+            y: {{
+              ticks: {{
+                font: {{ size: 9 }},
+                color: '#64748B',
+                callback: (v) => v.toFixed(1) + '%'
+              }},
+              grid: {{ color: '#F1F5F9' }}
+            }}
+          }}
+        }}
+      }});
+    }}
+
+    // Inicializar grafico do grupo estadual inicial
+    initGroupChart(geralAnos, geralTaxas);
+
     // Filtros
     const selGer = document.getElementById('select-gerencia');
     const selGrp = document.getElementById('select-grupo');
@@ -660,6 +752,7 @@ def create_interactive_leaflet_dashboard(
       let count = 0;
       let totalArea = 0;
       let sumTaxa = 0;
+      const activeIds = [];
 
       ucsLayer.eachLayer(layer => {{
         const p = layer.feature.properties;
@@ -671,6 +764,7 @@ def create_interactive_leaflet_dashboard(
           count++;
           totalArea += (p.area_ha || 0);
           sumTaxa += (p.taxa_media || 0);
+          activeIds.push(p.id);
         }} else {{
           layer.setStyle({{ opacity: 0, fillOpacity: 0 }});
         }}
@@ -680,6 +774,22 @@ def create_interactive_leaflet_dashboard(
       document.getElementById('stat-count').textContent = count;
       document.getElementById('stat-area').textContent = (totalArea / 1e6).toFixed(1) + ' mi ha';
       document.getElementById('stat-media').textContent = taxaMedia.toFixed(2) + '% / ano';
+
+      // Atualizar grafico do grupo filtrado
+      if (activeIds.length > 0) {{
+        const annualAverages = geralAnos.map((ano, idx) => {{
+          let sum = 0, c = 0;
+          activeIds.forEach(id => {{
+            const s = seriesData[id];
+            if (s && s.taxas && s.taxas[idx] !== undefined) {{
+              sum += s.taxas[idx];
+              c++;
+            }}
+          }});
+          return c > 0 ? (sum / c) : 0;
+        }});
+        initGroupChart(geralAnos, annualAverages);
+      }}
     }}
 
     selGer.addEventListener('change', updateFilters);
@@ -750,12 +860,12 @@ def create_interactive_leaflet_dashboard(
         document.getElementById('insp-marco-box').style.display = 'none';
       }}
 
-      renderChart(s, s.ano_criacao);
+      renderUCChart(s, s.ano_criacao);
 
       // Focar na geometria
       map.fitBounds(layer.getBounds(), {{
-        paddingTopLeft: [280, 50],
-        paddingBottomRight: [350, 50],
+        paddingTopLeft: [300, 50],
+        paddingBottomRight: [380, 50],
         maxZoom: 9
       }});
     }}
@@ -776,68 +886,61 @@ def create_interactive_leaflet_dashboard(
       selDirect.value = '';
     }}
 
-    function renderChart(series, anoCriacao) {{
-      const canvas = document.getElementById('chart-canvas');
-      const ctx = canvas.getContext('2d');
-      const w = canvas.width;
-      const h = canvas.height;
-      ctx.clearRect(0, 0, w, h);
+    function renderUCChart(series, anoCriacao) {{
+      const ctx = document.getElementById('uc-chart-canvas').getContext('2d');
+      if (ucChart) ucChart.destroy();
 
       if (!series || !series.anos || series.anos.length === 0) return;
 
       const anos = series.anos;
       const taxas = series.taxas;
-      const n = anos.length;
-      const maxVal = Math.max(...taxas, 1.0) * 1.15;
+      const colors = anos.map(ano => {{
+        return (anoCriacao && ano >= anoCriacao) ? '#DC2626' : '#2563EB';
+      }});
 
-      const padLeft = 32;
-      const padRight = 14;
-      const padTop = 18;
-      const padBottom = 24;
-
-      const plotW = w - padLeft - padRight;
-      const plotH = h - padTop - padBottom;
-
-      // Grade horizontal
-      ctx.strokeStyle = '#E2E8F0';
-      ctx.lineWidth = 1;
-      ctx.fillStyle = '#94A3B8';
-      ctx.font = '10px sans-serif';
-      ctx.textAlign = 'right';
-
-      for (let i = 0; i <= 3; i++) {{
-        const val = (maxVal * i) / 3;
-        const y = padTop + plotH - (plotH * i) / 3;
-        ctx.beginPath();
-        ctx.moveTo(padLeft, y);
-        ctx.lineTo(w - padRight, y);
-        ctx.stroke();
-        ctx.fillText(val.toFixed(1) + '%', padLeft - 4, y + 3);
-      }}
-
-      // Barras anuais
-      const barW = (plotW / n) * 0.75;
-      const step = plotW / n;
-
-      for (let i = 0; i < n; i++) {{
-        const ano = anos[i];
-        const val = taxas[i];
-        const barH = (val / maxVal) * plotH;
-        const x = padLeft + (i * step) + (step - barW) / 2;
-        const y = padTop + plotH - barH;
-
-        const isPost = anoCriacao && (ano >= anoCriacao);
-        ctx.fillStyle = isPost ? '#DC2626' : '#2563EB';
-        ctx.fillRect(x, y, barW, barH);
-
-        // Rotulos de ano nos marcos
-        if (i === 0 || i === Math.floor(n / 2) || i === n - 1 || (anoCriacao && ano === anoCriacao)) {{
-          ctx.fillStyle = (anoCriacao && ano === anoCriacao) ? '#DC2626' : '#64748B';
-          ctx.font = (anoCriacao && ano === anoCriacao) ? 'bold 9.5px sans-serif' : '9px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.fillText(ano, x + barW / 2, h - 8);
+      ucChart = new Chart(ctx, {{
+        type: 'bar',
+        data: {{
+          labels: anos,
+          datasets: [{{
+            data: taxas,
+            backgroundColor: colors,
+            borderRadius: 2,
+            borderWidth: 0
+          }}]
+        }},
+        options: {{
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {{
+            legend: {{ display: false }},
+            tooltip: {{
+              callbacks: {{
+                title: (items) => `Ano: ${{items[0].label}}`,
+                label: (ctx) => `Taxa: ${{ctx.raw.toFixed(2)}}% da UC`
+              }}
+            }}
+          }},
+          scales: {{
+            x: {{
+              ticks: {{
+                maxTicksLimit: 8,
+                font: {{ size: 9 }},
+                color: '#64748B'
+              }},
+              grid: {{ display: false }}
+            }},
+            y: {{
+              ticks: {{
+                font: {{ size: 9 }},
+                color: '#64748B',
+                callback: (v) => v.toFixed(1) + '%'
+              }},
+              grid: {{ color: '#F1F5F9' }}
+            }}
+          }}
         }}
-      }}
+      }});
     }}
   </script>
 </body>
@@ -848,6 +951,6 @@ def create_interactive_leaflet_dashboard(
         dest_html = output_path or (DATA_OUTPUT / "mapa_interativo_fogo_ucs.html")
         with open(dest_html, "w", encoding="utf-8") as f:
             f.write(html_template)
-        print(f"Mini Dashboard Leaflet salvo em: {dest_html}")
+        print(f"Mini Dashboard Leaflet com Chart.js salvo em: {dest_html}")
 
     return html_template
