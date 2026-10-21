@@ -54,21 +54,32 @@ IN_COLAB = "google.colab" in sys.modules
 
 if IN_COLAB:
     print("Ambiente Google Colab detectado. Sincronizando repositorio oficial...")
-    if not Path("analise-historica-incendios").exists() and not Path(".git").exists():
+    # Fixa o diretorio base em /content para evitar aninhamento de pastas
+    os.chdir("/content")
+    repo_dir = Path("/content/analise-historica-incendios")
+
+    if not repo_dir.exists():
         !git clone https://github.com/NGEO-IDEFLOR-Bio/analise-historica-incendios.git
-        %cd analise-historica-incendios
-    elif Path("analise-historica-incendios").exists():
-        %cd analise-historica-incendios
-        !git pull origin main
-    elif Path(".git").exists():
+        os.chdir(repo_dir)
+    else:
+        os.chdir(repo_dir)
+        !git reset --hard origin/main
         !git pull origin main
 
-    ROOT_DIR = Path(".").resolve()
+    ROOT_DIR = repo_dir
+
+    # Remove eventuais caminhos duplicados de sessoes anteriores do sys.path
+    sys.path = [p for p in sys.path if "analise-historica-incendios" not in p]
+    sys.path.insert(0, str(ROOT_DIR))
+
+    # Limpa modulos pre-carregados de src para forcar recarregamento dos arquivos atualizados
+    for mod in list(sys.modules.keys()):
+        if mod.startswith("src"):
+            del sys.modules[mod]
 else:
     ROOT_DIR = Path("..").resolve()
-
-if str(ROOT_DIR) not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR))
+    if str(ROOT_DIR) not in sys.path:
+        sys.path.insert(0, str(ROOT_DIR))
 
 print(f"Raiz do projeto configurada: {ROOT_DIR}")
 """))
