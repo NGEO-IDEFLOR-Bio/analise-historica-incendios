@@ -50,7 +50,7 @@ if IN_COLAB:
     print("Ambiente Google Colab detectado. Clonando repositorio oficial...")
     !git clone https://github.com/NGEO-IDEFLOR-Bio/analise-historica-incendios.git
     %cd analise-historica-incendios
-    !pip install -q geopandas folium branca ipywidgets matplotlib seaborn
+    !pip install -q geopandas ipywidgets matplotlib seaborn
     ROOT_DIR = Path(".").resolve()
 else:
     ROOT_DIR = Path("..").resolve()
@@ -67,14 +67,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import geopandas as gpd
-import folium
 import ipywidgets as widgets
 from IPython.display import display
 
 from src.config import CSV_METADATA_UCS, GEOJSON_UCS, DATA_PROCESSED
 from src.viz.theme import apply_ggplot_theme, COLOR_FIRE_MAIN, COLOR_FIRE_LIGHT, COLOR_PRE_CREATION, COLOR_POST_CREATION
 from src.viz.charts import plot_panorama_estadual, plot_comparativo_gerencias, plot_uc_before_after
-from src.viz.maps import plot_static_map, create_interactive_folium_map
+from src.viz.maps import plot_static_map, create_interactive_maplibre_map, display_maplibre_in_notebook
 
 apply_ggplot_theme()
 print("Modulos carregados e padronizacao grafica ativada.")
@@ -206,14 +205,18 @@ widgets.interact(atualizar_grafico_uc, uc_id=dropdown_uc)
 Espacializacao geografica das 29 Unidades de Conservacao classificadas pela taxa media anual de queima registrada entre 1985 e 2023.
 """))
 
-    cells.append(make_cell("code", """# Mapa estatico vetorial (GeoPandas e Matplotlib)
-fig, ax = plot_static_map(df_series, figsize=(11, 8.5))
+    cells.append(make_cell("code", """# Prancha cartografica oficial com contexto regional, escala grafica e mapa de enquadramento
+fig, ax = plot_static_map(df_series, figsize=(15, 11))
 plt.show()
 """))
 
-    cells.append(make_cell("code", """# Mapa interativo em ambiente Leaflet (Folium) com atributos cadastrais e metricas por poligono
-mapa_interativo = create_interactive_folium_map(df_series, save_html=True)
-display(mapa_interativo)
+    cells.append(make_cell("markdown", """### Mapa Interativo Vetorial (MapLibre GL JS)
+
+Navegacao interativa com renderizacao acelerada por hardware via MapLibre GL JS, isenta das politicas de bloqueio de servidores publicos de tiles. A ferramenta permite aproximacao, rotacao tridimensional e inspecao direta dos indicadores de cada poligono.
+"""))
+
+    cells.append(make_cell("code", """# Geracao e exibicao do mapa interativo MapLibre GL JS diretamente na celula
+display(display_maplibre_in_notebook(df_series, height=650))
 """))
 
     # 11. SINTESE CONCLUSIVA

@@ -1,7 +1,7 @@
 """
 Modulo de cartografia e mapeamento espacial.
 Gera prancha cartografica profissional em layout de atlas (GeoPandas e Matplotlib)
-e mapa interativo para navegacao vetorial em tela cheia (Folium).
+e mapa interativo vetorial baseado em MapLibre GL JS.
 """
 from typing import Optional, Dict, Any, Tuple
 from pathlib import Path
@@ -13,14 +13,14 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import matplotlib.colors as mcolors
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-import folium
-import branca.colormap as cm
 
 from src.config import (
     GEOJSON_UCS,
     GEOJSON_PARA,
     GEOJSON_BRASIL_UFS_SIMP,
     GEOJSON_AMERICA_DO_SUL_SIMP,
+    GEOJSON_BRASIL_UFS,
+    GEOJSON_AMERICA_DO_SUL,
     DATA_OUTPUT
 )
 from src.viz.theme import (
@@ -34,16 +34,13 @@ def _draw_scale_bar(ax, x0: float, y0: float, length_km: float = 300.0, lat_ref:
     Desenha uma barra de escala grafica cartografica com blocos alternados em preto e branco.
     Calcula a conversao aproximada de graus para quilometros na latitude de referencia.
     """
-    # 1 grau de longitude na latitude lat_ref (em km)
     km_per_deg = 111.32 * np.cos(np.radians(lat_ref))
     length_deg = length_km / km_per_deg
     height_deg = 0.18
 
-    # Desenha dois segmentos (0 a length/2 e length/2 a length)
     half_deg = length_deg / 2.0
     half_km = length_km / 2.0
 
-    # Fundo branco sutil para legibilidade
     bg = patches.Rectangle(
         (x0 - 0.2, y0 - 0.45),
         length_deg + 1.2,
@@ -56,27 +53,21 @@ def _draw_scale_bar(ax, x0: float, y0: float, length_km: float = 300.0, lat_ref:
     )
     ax.add_patch(bg)
 
-    # Bloco 1 (preto)
     rect1 = patches.Rectangle((x0, y0), half_deg, height_deg, facecolor="#1E293B", edgecolor="#1E293B", zorder=21)
-    # Bloco 2 (branco)
     rect2 = patches.Rectangle((x0 + half_deg, y0), half_deg, height_deg, facecolor="#F8FAFC", edgecolor="#1E293B", zorder=21)
     ax.add_patch(rect1)
     ax.add_patch(rect2)
 
-    # Rotulos de distancia
     ax.text(x0, y0 - 0.25, "0", ha="center", va="top", fontsize=7.5, color="#1E293B", fontweight="bold", zorder=22)
     ax.text(x0 + half_deg, y0 - 0.25, f"{int(half_km)}", ha="center", va="top", fontsize=7.5, color="#1E293B", fontweight="bold", zorder=22)
     ax.text(x0 + length_deg, y0 - 0.25, f"{int(length_km)} km", ha="center", va="top", fontsize=7.5, color="#1E293B", fontweight="bold", zorder=22)
 
 def _draw_north_arrow(ax, x: float, y: float, size: float = 0.8):
     """Desenha indicador de norte cartografico minimalista."""
-    # Fundo circular
     circle = patches.Circle((x, y), size * 0.9, facecolor="#FFFFFF", edgecolor="#CBD5E1", linewidth=0.6, alpha=0.92, zorder=20)
     ax.add_patch(circle)
 
-    # Metade esquerda (escura)
     poly_left = patches.Polygon([[x, y + size * 0.65], [x - size * 0.3, y - size * 0.4], [x, y]], facecolor="#0F172A", edgecolor="#0F172A", zorder=21)
-    # Metade direita (clara)
     poly_right = patches.Polygon([[x, y + size * 0.65], [x + size * 0.3, y - size * 0.4], [x, y]], facecolor="#F8FAFC", edgecolor="#0F172A", zorder=21)
     
     ax.add_patch(poly_left)
@@ -98,17 +89,14 @@ def plot_static_map(
     """
     apply_ggplot_theme()
 
-    # 1. Carregamento e preparacao dos dados espaciais
     gdf_ucs = gpd.read_file(GEOJSON_UCS)
     gdf_para = gpd.read_file(GEOJSON_PARA)
     
-    # Priorizar bases simplificadas para performance; fallback para raw se necessario
     ufs_path = GEOJSON_BRASIL_UFS_SIMP if GEOJSON_BRASIL_UFS_SIMP.exists() else GEOJSON_BRASIL_UFS
     sa_path = GEOJSON_AMERICA_DO_SUL_SIMP if GEOJSON_AMERICA_DO_SUL_SIMP.exists() else GEOJSON_AMERICA_DO_SUL
     gdf_ufs = gpd.read_file(ufs_path)
     gdf_sa = gpd.read_file(sa_path)
 
-    # Consolidacao das metricas de fogo por UC
     uc_stats = df_series.groupby("uc_id").agg(
         taxa_media_pct=("taxa_queimada_pct", "mean"),
         taxa_max_pct=("taxa_queimada_pct", "max"),
@@ -116,27 +104,18 @@ def plot_static_map(
     ).reset_index()
     gdf_ucs = gdf_ucs.merge(uc_stats, left_on="id", right_on="uc_id", how="left")
 
-    # 2. Criacao da figura principal
     fig, ax = plt.subplots(figsize=figsize, facecolor="#F8FAFC")
-    ax.set_facecolor("#E0F2FE")  # Fundo oceanico suave
+    ax.set_facecolor("#E0F2FE")
 
-    # Enquadramento geografico do mapa principal (com margem de respiro)
     xlim = (-59.2, -45.6)
     ylim = (-10.4, 3.2)
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
 
-    # 3. Camadas de Fundo Geografico
-    # 3.1. America do Sul (paises)
     gdf_sa.plot(ax=ax, facecolor="#F1F5F9", edgecolor="#CBD5E1", linewidth=0.7, zorder=2)
-
-    # 3.2. Estados Brasileiros vizinhos
     gdf_ufs.plot(ax=ax, facecolor="#F8FAFC", edgecolor="#D1D5DB", linewidth=0.7, zorder=3)
-
-    # 3.3. Estado do Para (destaque do territorio estadual)
     gdf_para.plot(ax=ax, facecolor="#FFFFFF", edgecolor="#334155", linewidth=1.6, zorder=4)
 
-    # 4. Camada Tematica: As 29 Unidades de Conservacao
     cmap = plt.cm.YlOrRd
     norm = mcolors.Normalize(vmin=0.0, vmax=max(gdf_ucs["taxa_media_pct"].max(), 5.0))
 
@@ -151,7 +130,6 @@ def plot_static_map(
         zorder=10
     )
 
-    # 5. Rotulos Geograficos dos Estados e Paises Vizinhos
     rotulos_vizinhos = [
         {"texto": "AMAZONAS", "pos": (-58.3, -4.5), "rot": 0},
         {"texto": "MATO GROSSO", "pos": (-54.5, -10.0), "rot": 0},
@@ -165,7 +143,6 @@ def plot_static_map(
     ]
 
     for item in rotulos_vizinhos:
-        # Exibir somente se dentro dos limites de exibicao
         if xlim[0] <= item["pos"][0] <= xlim[1] and ylim[0] <= item["pos"][1] <= ylim[1]:
             ax.text(
                 item["pos"][0],
@@ -181,7 +158,6 @@ def plot_static_map(
                 zorder=6
             )
 
-    # 6. Grade Geografica (Graticules) com rotulos de graus
     x_ticks = np.arange(-58, -44, 4)
     y_ticks = np.arange(-10, 4, 2)
     ax.set_xticks(x_ticks)
@@ -190,12 +166,9 @@ def plot_static_map(
     ax.set_yticklabels([f"{int(y)}°N" if y > 0 else (f"{abs(int(y))}°S" if y < 0 else "0°") for y in y_ticks], fontsize=8.5, color=COLOR_TEXT_MUTED)
     ax.grid(True, linestyle=":", color="#94A3B8", alpha=0.5, zorder=5)
 
-    # 7. Barra de Escala e Indicador de Norte
     _draw_scale_bar(ax, x0=-49.8, y0=-9.8, length_km=300.0, lat_ref=-4.0)
     _draw_north_arrow(ax, x=-46.8, y=1.9, size=0.65)
 
-    # 8. Inset Map: Enquadramento Continental (America do Sul e Brasil)
-    # Posicionado no canto inferior esquerdo
     ax_inset = inset_axes(
         ax,
         width="26%",
@@ -207,12 +180,10 @@ def plot_static_map(
     )
     ax_inset.set_facecolor("#E0F2FE")
 
-    # Desenha America do Sul e Brasil no Inset
     gdf_sa.plot(ax=ax_inset, facecolor="#E2E8F0", edgecolor="#CBD5E1", linewidth=0.4)
     gdf_ufs.plot(ax=ax_inset, facecolor="#F1F5F9", edgecolor="#CBD5E1", linewidth=0.3)
     gdf_para.plot(ax=ax_inset, facecolor="#D84315", edgecolor="#BF360C", linewidth=0.8)
 
-    # Retangulo demarcador da regiao do mapa principal
     rect_extent = patches.Rectangle(
         (xlim[0], ylim[0]),
         xlim[1] - xlim[0],
@@ -234,7 +205,6 @@ def plot_static_map(
         spine.set_linewidth(0.8)
     ax_inset.set_title("Localizacao no Brasil", fontsize=7.5, fontweight="bold", pad=3, color="#1E293B")
 
-    # 9. Barra de Legenda Tematica
     cax = inset_axes(
         ax,
         width="38%",
@@ -253,7 +223,6 @@ def plot_static_map(
     cbar.ax.tick_params(labelsize=7.5, color="#1E293B")
     cax.set_facecolor("#FFFFFF")
 
-    # 10. Titulos e Carimbo Cartografico Oficial
     fig.text(
         0.05, 0.95,
         "SISTEMA ESTADUAL DE UNIDADES DE CONSERVACAO DO PARA (IDEFLOR-BIO)",
@@ -278,105 +247,359 @@ def plot_static_map(
 
     return fig, ax
 
-def create_interactive_folium_map(df_series: pd.DataFrame, save_html: bool = True) -> folium.Map:
-    """Gera mapa interativo Folium com tooltips detalhadas, limites estaduais e escala continua."""
+def create_interactive_maplibre_map(
+    df_series: pd.DataFrame,
+    save_html: bool = True,
+    output_path: Optional[Path] = None
+) -> str:
+    """
+    Gera mapa vetorial interativo de alta performance utilizando MapLibre GL JS.
+    Nao utiliza servidores com politicas de bloqueio (evita o erro do OpenStreetMap).
+    Inclui controle de camadas, escala de cores termica e tooltips interativas.
+    Retorna o codigo HTML completo como string.
+    """
     with open(GEOJSON_UCS, "r", encoding="utf-8") as f:
-        geo_data = json.load(f)
+        geo_ucs = json.load(f)
 
-    # Carregar limite do Para
     with open(GEOJSON_PARA, "r", encoding="utf-8") as f:
         geo_para = json.load(f)
 
-    # Estatisticas agregadas por UC
+    # Inserir metricas agregadas nas propriedades dos poligonos
     uc_stats = df_series.groupby("uc_id").agg(
         taxa_media_pct=("taxa_queimada_pct", "mean"),
+        taxa_max_pct=("taxa_queimada_pct", "max"),
         burned_ha_total=("burned_ha", "sum")
     ).reset_index()
-    stats_map = {row["uc_id"]: row for _, row in uc_stats.iterrows()}
+    stats_map = {int(row["uc_id"]): row for _, row in uc_stats.iterrows()}
 
-    for feat in geo_data["features"]:
+    for feat in geo_ucs["features"]:
         uid = feat["properties"].get("id")
         stat = stats_map.get(uid)
         if stat is not None:
             feat["properties"]["taxa_media_pct"] = round(float(stat["taxa_media_pct"]), 2)
+            feat["properties"]["taxa_max_pct"] = round(float(stat["taxa_max_pct"]), 2)
             feat["properties"]["burned_ha_total"] = round(float(stat["burned_ha_total"]), 1)
         else:
             feat["properties"]["taxa_media_pct"] = 0.0
+            feat["properties"]["taxa_max_pct"] = 0.0
             feat["properties"]["burned_ha_total"] = 0.0
 
-    # Inicializar mapa centralizado no Estado do Para
-    m = folium.Map(
-        location=[-3.8, -52.5],
-        zoom_start=6,
-        tiles="OpenStreetMap"
-    )
+    geo_ucs_json_str = json.dumps(geo_ucs, ensure_ascii=False)
+    geo_para_json_str = json.dumps(geo_para, ensure_ascii=False)
 
-    # 1. Camada de Limite Estadual do Para
-    folium.GeoJson(
-        geo_para,
-        name="Limite Estadual do Para",
-        style_function=lambda x: {
-            "fillColor": "none",
-            "color": "#1E293B",
-            "weight": 2.2,
-            "dashArray": "4, 4"
-        }
-    ).add_to(m)
+    html_template = f"""<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mapa Interativo do Regime de Fogo nas UCs do Para (IDEFLOR-Bio)</title>
+  
+  <!-- MapLibre GL JS -->
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 
-    # 2. Escala de cores continua para as UCs
-    max_taxa = max([f["properties"]["taxa_media_pct"] for f in geo_data["features"]] or [1.0])
-    colormap = cm.LinearColormap(
-        colors=["#FFFFB2", "#FECC5C", "#FD8D3C", "#F03B20", "#BD0026"],
-        vmin=0.0,
-        vmax=max(max_taxa, 5.0),
-        caption="Taxa Media Anual de Queima (% da UC / ano, 1985 a 2023)"
-    )
-    colormap.add_to(m)
+  <style>
+    * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    body, html {{ width: 100%; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }}
+    #map {{ width: 100%; height: 100%; position: absolute; top: 0; bottom: 0; }}
 
-    def style_fn(feature):
-        val = feature["properties"].get("taxa_media_pct", 0.0)
-        return {
-            "fillColor": colormap(val),
-            "color": "#0F172A",
-            "weight": 1.2,
-            "fillOpacity": 0.8
-        }
+    /* Painel Flutuante de Informacoes */
+    .info-panel {{
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(8px);
+      padding: 16px 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      max-width: 380px;
+      z-index: 10;
+      border: 1px solid #E2E8F0;
+    }}
+    .info-panel h1 {{
+      font-size: 15px;
+      font-weight: 700;
+      color: #0F172A;
+      margin-bottom: 4px;
+    }}
+    .info-panel p {{
+      font-size: 12px;
+      color: #475569;
+      line-height: 1.4;
+    }}
 
-    def highlight_fn(feature):
-        return {
-            "color": "#000000",
-            "weight": 2.8,
-            "fillOpacity": 0.95
-        }
+    /* Legenda Tematica */
+    .legend {{
+      position: absolute;
+      bottom: 24px;
+      right: 16px;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(8px);
+      padding: 14px 18px;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      z-index: 10;
+      border: 1px solid #E2E8F0;
+      font-size: 11.5px;
+      color: #1E293B;
+    }}
+    .legend-title {{
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #0F172A;
+    }}
+    .legend-bar {{
+      width: 220px;
+      height: 12px;
+      border-radius: 4px;
+      background: linear-gradient(to right, #FFFFB2, #FECC5C, #FD8D3C, #F03B20, #BD0026);
+      margin-bottom: 4px;
+    }}
+    .legend-labels {{
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: #64748B;
+      font-weight: 600;
+    }}
 
-    # 3. Camada das Unidades de Conservacao
-    folium.GeoJson(
-        geo_data,
-        name="Unidades de Conservacao (IDEFLOR-Bio)",
-        style_function=style_fn,
-        highlight_function=highlight_fn,
-        tooltip=folium.GeoJsonTooltip(
-            fields=["name", "gerencia", "categoria", "grupo", "criacao", "area_ha", "taxa_media_pct", "burned_ha_total"],
-            aliases=[
-                "Unidade:",
-                "Gerencia Regional:",
-                "Categoria:",
-                "Grupo SNUC:",
-                "Data de Criacao:",
-                "Area Total (ha):",
-                "Taxa Media de Queima (%/ano):",
-                "Area Queimada Total 1985-2023 (ha):"
+    /* Tooltip Customizada */
+    .maplibregl-popup-content {{
+      padding: 14px 16px;
+      border-radius: 8px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.2);
+      border: 1px solid #E2E8F0;
+      font-size: 12px;
+      max-width: 320px;
+      line-height: 1.5;
+    }}
+    .popup-title {{
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #0F172A;
+      margin-bottom: 6px;
+      border-bottom: 1px solid #E2E8F0;
+      padding-bottom: 4px;
+    }}
+    .popup-row {{
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 3px;
+    }}
+    .popup-label {{
+      color: #64748B;
+    }}
+    .popup-value {{
+      font-weight: 600;
+      color: #0F172A;
+    }}
+    .popup-badge {{
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      background: #FEE2E2;
+      color: #991B1B;
+    }}
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <div class="info-panel">
+    <h1>IDEFLOR-Bio | Sistema Estadual de UCs</h1>
+    <p>Taxa Media Anual de Queima e Regime Historico de Fogo (1985 a 2023). Passe o cursor sobre os poligonos para inspecionar os indicadores.</p>
+  </div>
+
+  <div class="legend">
+    <div class="legend-title">Taxa Media Anual de Queima (%/ano)</div>
+    <div class="legend-bar"></div>
+    <div class="legend-labels">
+      <span>0.0%</span>
+      <span>2.5%</span>
+      <span>5.0%</span>
+      <span>7.5%</span>
+      <span>≥ 10.0%</span>
+    </div>
+  </div>
+
+  <script>
+    // Inicializacao do MapLibre GL JS com basemap vetorial confiavel (Carto Positron livre de bloqueios)
+    const map = new maplibreGl.Map({{
+      container: 'map',
+      style: {{
+        version: 8,
+        sources: {{
+          'carto-positron': {{
+            type: 'raster',
+            tiles: [
+              'https://a.basemaps.cartocdn.com/light_all/{{z}}/{{x}}/{{y}}.png',
+              'https://b.basemaps.cartocdn.com/light_all/{{z}}/{{x}}/{{y}}.png',
+              'https://c.basemaps.cartocdn.com/light_all/{{z}}/{{x}}/{{y}}.png'
             ],
-            localize=True,
-            sticky=True
-        )
-    ).add_to(m)
+            tileSize: 256,
+            attribution: '&copy; CartoDB &copy; OpenStreetMap contributors'
+          }}
+        }},
+        layers: [
+          {{
+            id: 'carto-positron-layer',
+            type: 'raster',
+            source: 'carto-positron',
+            minzoom: 0,
+            maxzoom: 19
+          }}
+        ]
+      }},
+      center: [-52.5, -3.8],
+      zoom: 5.6
+    }});
 
-    folium.LayerControl().add_to(m)
+    // Controles de Navegacao e Escala
+    map.addControl(new maplibreGl.NavigationControl(), 'top-right');
+    map.addControl(new maplibreGl.FullscreenControl(), 'top-right');
+    map.addControl(new maplibreGl.ScaleControl({{ maxWidth: 120, unit: 'metric' }}), 'bottom-left');
+
+    const ucsData = {geo_ucs_json_str};
+    const paraData = {geo_para_json_str};
+
+    map.on('load', () => {{
+      // 1. Fonte e camada do Limite Estadual do Para
+      map.addSource('limite-para', {{
+        type: 'geojson',
+        data: paraData
+      }});
+
+      map.addLayer({{
+        id: 'limite-para-line',
+        type: 'line',
+        source: 'limite-para',
+        paint: {{
+          'line-color': '#334155',
+          'line-width': 2.0,
+          'line-dasharray': [3, 2]
+        }}
+      }});
+
+      // 2. Fonte e camadas das 29 Unidades de Conservacao
+      map.addSource('ucs-ideflor', {{
+        type: 'geojson',
+        data: ucsData
+      }});
+
+      // Preenchimento coropletico continuo baseado na taxa_media_pct
+      map.addLayer({{
+        id: 'ucs-fill',
+        type: 'fill',
+        source: 'ucs-ideflor',
+        paint: {{
+          'fill-color': [
+            'interpolate',
+            ['linear'],
+            ['get', 'taxa_media_pct'],
+            0.0, '#FFFFB2',
+            1.5, '#FECC5C',
+            3.5, '#FD8D3C',
+            6.0, '#F03B20',
+            10.0, '#BD0026'
+          ],
+          'fill-opacity': 0.82
+        }}
+      }});
+
+      // Contorno das UCs
+      map.addLayer({{
+        id: 'ucs-line',
+        type: 'line',
+        source: 'ucs-ideflor',
+        paint: {{
+          'line-color': '#0F172A',
+          'line-width': 1.0
+        }}
+      }});
+
+      // Destaque (Hover)
+      map.addLayer({{
+        id: 'ucs-highlight',
+        type: 'line',
+        source: 'ucs-ideflor',
+        paint: {{
+          'line-color': '#000000',
+          'line-width': 3.0
+        }},
+        filter: ['==', 'id', '']
+      }});
+
+      // Popup interativo
+      const popup = new maplibreGl.Popup({{
+        closeButton: false,
+        closeOnClick: false
+      }});
+
+      map.on('mousemove', 'ucs-fill', (e) => {{
+        map.getCanvas().style.cursor = 'pointer';
+
+        if (e.features.length > 0) {{
+          const feat = e.features[0];
+          const props = feat.properties;
+
+          map.setFilter('ucs-highlight', ['==', 'id', props.id]);
+
+          const taxaMedia = Number(props.taxa_media_pct || 0).toFixed(2);
+          const taxaMax = Number(props.taxa_max_pct || 0).toFixed(2);
+          const areaHa = Number(props.area_ha || 0).toLocaleString('pt-BR', {{ maximumFractionDigits: 0 }});
+          const totalBurned = Number(props.burned_ha_total || 0).toLocaleString('pt-BR', {{ maximumFractionDigits: 0 }});
+
+          const html = `
+            <div class="popup-title">${{props.name || props.nome_}}</div>
+            <div class="popup-row"><span class="popup-label">Gerencia:</span><span class="popup-value">${{props.gerencia || '-'}}</span></div>
+            <div class="popup-row"><span class="popup-label">Categoria:</span><span class="popup-value">${{props.categoria || '-'}} (${{props.grupo || '-'}})</span></div>
+            <div class="popup-row"><span class="popup-label">Ano Criacao:</span><span class="popup-value">${{props.criacao || '-'}}</span></div>
+            <div class="popup-row"><span class="popup-label">Area Total:</span><span class="popup-value">${{areaHa}} ha</span></div>
+            <div class="popup-row"><span class="popup-label">Taxa Media:</span><span class="popup-badge">${{taxaMedia}}% ao ano</span></div>
+            <div class="popup-row"><span class="popup-label">Pico Historico:</span><span class="popup-value">${{taxaMax}}%</span></div>
+            <div class="popup-row"><span class="popup-label">Queima Total (1985-2023):</span><span class="popup-value">${{totalBurned}} ha</span></div>
+          `;
+
+          popup.setLngLat(e.lngLat).setHTML(html).addTo(map);
+        }}
+      }});
+
+      map.on('mouseleave', 'ucs-fill', () => {{
+        map.getCanvas().style.cursor = '';
+        map.setFilter('ucs-highlight', ['==', 'id', '']);
+        popup.remove();
+      }});
+    }});
+  </script>
+</body>
+</html>
+"""
 
     if save_html:
-        out_html = DATA_OUTPUT / "mapa_interativo_fogo_ucs.html"
-        m.save(str(out_html))
-        print(f"Mapa interativo salvo em: {out_html}")
+        dest_html = output_path or (DATA_OUTPUT / "mapa_interativo_fogo_ucs.html")
+        with open(dest_html, "w", encoding="utf-8") as f:
+            f.write(html_template)
+        print(f"Mapa interativo MapLibre GL JS salvo em: {dest_html}")
 
-    return m
+    return html_template
+
+def display_maplibre_in_notebook(df_series: pd.DataFrame, height: int = 650):
+    """
+    Gera e renderiza o mapa interativo MapLibre GL JS diretamente na celula do Jupyter Notebook.
+    Utiliza srcdoc para garantir funcionamento compativel com JupyterLab, VS Code e Google Colab.
+    """
+    from IPython.display import HTML
+    import html as py_html
+
+    html_raw = create_interactive_maplibre_map(df_series, save_html=True)
+    escaped = py_html.escape(html_raw, quote=True)
+
+    return HTML(f'''
+    <div style="width: 100%; height: {height}px; border: 1px solid #CBD5E1; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.12);">
+      <iframe srcdoc="{escaped}" style="width: 100%; height: 100%; border: none;"></iframe>
+    </div>
+    ''')
+
