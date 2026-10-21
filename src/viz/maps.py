@@ -30,41 +30,39 @@ from src.viz.theme import (
 )
 
 def _draw_scale_bar(ax, x0: float, y0: float, length_km: float = 300.0, lat_ref: float = -4.0):
-    """
-    Desenha uma barra de escala grafica cartografica com blocos alternados em preto e branco.
-    Calcula a conversao aproximada de graus para quilometros na latitude de referencia.
-    """
+    """Desenha barra de escala grafica cartografica com blocos alternados em preto e branco."""
     km_per_deg = 111.32 * np.cos(np.radians(lat_ref))
     length_deg = length_km / km_per_deg
-    height_deg = 0.18
+    height_deg = 0.16
 
     half_deg = length_deg / 2.0
     half_km = length_km / 2.0
 
+    # Fundo branco sutil para legibilidade
     bg = patches.Rectangle(
-        (x0 - 0.2, y0 - 0.45),
-        length_deg + 1.2,
+        (x0 - 0.25, y0 - 0.45),
+        length_deg + 1.25,
         height_deg + 0.95,
         facecolor="#FFFFFF",
         edgecolor="#CBD5E1",
-        linewidth=0.6,
-        alpha=0.92,
+        linewidth=0.7,
+        alpha=0.95,
         zorder=20
     )
     ax.add_patch(bg)
 
-    rect1 = patches.Rectangle((x0, y0), half_deg, height_deg, facecolor="#1E293B", edgecolor="#1E293B", zorder=21)
-    rect2 = patches.Rectangle((x0 + half_deg, y0), half_deg, height_deg, facecolor="#F8FAFC", edgecolor="#1E293B", zorder=21)
+    rect1 = patches.Rectangle((x0, y0), half_deg, height_deg, facecolor="#0F172A", edgecolor="#0F172A", zorder=21)
+    rect2 = patches.Rectangle((x0 + half_deg, y0), half_deg, height_deg, facecolor="#F8FAFC", edgecolor="#0F172A", zorder=21)
     ax.add_patch(rect1)
     ax.add_patch(rect2)
 
-    ax.text(x0, y0 - 0.25, "0", ha="center", va="top", fontsize=7.5, color="#1E293B", fontweight="bold", zorder=22)
-    ax.text(x0 + half_deg, y0 - 0.25, f"{int(half_km)}", ha="center", va="top", fontsize=7.5, color="#1E293B", fontweight="bold", zorder=22)
-    ax.text(x0 + length_deg, y0 - 0.25, f"{int(length_km)} km", ha="center", va="top", fontsize=7.5, color="#1E293B", fontweight="bold", zorder=22)
+    ax.text(x0, y0 - 0.25, "0", ha="center", va="top", fontsize=8, color="#0F172A", fontweight="bold", zorder=22)
+    ax.text(x0 + half_deg, y0 - 0.25, f"{int(half_km)}", ha="center", va="top", fontsize=8, color="#0F172A", fontweight="bold", zorder=22)
+    ax.text(x0 + length_deg, y0 - 0.25, f"{int(length_km)} km", ha="center", va="top", fontsize=8, color="#0F172A", fontweight="bold", zorder=22)
 
-def _draw_north_arrow(ax, x: float, y: float, size: float = 0.8):
+def _draw_north_arrow(ax, x: float, y: float, size: float = 0.75):
     """Desenha indicador de norte cartografico minimalista."""
-    circle = patches.Circle((x, y), size * 0.9, facecolor="#FFFFFF", edgecolor="#CBD5E1", linewidth=0.6, alpha=0.92, zorder=20)
+    circle = patches.Circle((x, y), size * 0.95, facecolor="#FFFFFF", edgecolor="#CBD5E1", linewidth=0.7, alpha=0.95, zorder=20)
     ax.add_patch(circle)
 
     poly_left = patches.Polygon([[x, y + size * 0.65], [x - size * 0.3, y - size * 0.4], [x, y]], facecolor="#0F172A", edgecolor="#0F172A", zorder=21)
@@ -72,7 +70,7 @@ def _draw_north_arrow(ax, x: float, y: float, size: float = 0.8):
     
     ax.add_patch(poly_left)
     ax.add_patch(poly_right)
-    ax.text(x, y + size * 0.72, "N", ha="center", va="bottom", fontsize=8.5, fontweight="bold", color="#0F172A", zorder=22)
+    ax.text(x, y + size * 0.72, "N", ha="center", va="bottom", fontsize=9, fontweight="bold", color="#0F172A", zorder=22)
 
 def plot_static_map(
     df_series: pd.DataFrame,
@@ -86,6 +84,7 @@ def plot_static_map(
     - As 29 Unidades de Conservacao coloridas por taxa media anual de queima
     - Inset de localizacao continental (mapa de enquadramento)
     - Barra de escala grafica, rosa dos ventos e grade de coordenadas (graticules)
+    - Sem sobreposicoes de legendas ou rotulos geodesicos redundantes
     """
     apply_ggplot_theme()
 
@@ -131,15 +130,15 @@ def plot_static_map(
     )
 
     rotulos_vizinhos = [
-        {"texto": "AMAZONAS", "pos": (-58.3, -4.5), "rot": 0},
-        {"texto": "MATO GROSSO", "pos": (-54.5, -10.0), "rot": 0},
+        {"texto": "AMAZONAS", "pos": (-58.2, -4.5), "rot": 0},
+        {"texto": "MATO GROSSO", "pos": (-54.5, -9.9), "rot": 0},
         {"texto": "TOCANTINS", "pos": (-48.2, -7.5), "rot": 0},
-        {"texto": "MARANHÃO", "pos": (-46.3, -3.8), "rot": 0},
-        {"texto": "AMAPÁ", "pos": (-51.8, 1.6), "rot": 0},
-        {"texto": "RORAIMA", "pos": (-58.8, 1.2), "rot": 0},
+        {"texto": "MARANHÃO", "pos": (-46.2, -3.8), "rot": 0},
+        {"texto": "AMAPÁ", "pos": (-51.8, 1.8), "rot": 0},
+        {"texto": "RORAIMA", "pos": (-58.8, 2.2), "rot": 0},
         {"texto": "SURINAME", "pos": (-56.0, 2.7), "rot": 0},
         {"texto": "GUIANA\nFRANCESA", "pos": (-53.0, 2.8), "rot": 0},
-        {"texto": "OCEANO ATLÂNTICO", "pos": (-47.5, 1.2), "rot": -25, "cor": "#0369A1", "estilo": "italic"},
+        {"texto": "OCEANO ATLÂNTICO", "pos": (-47.5, 1.4), "rot": -25, "cor": "#0369A1", "estilo": "italic"},
     ]
 
     for item in rotulos_vizinhos:
@@ -148,7 +147,7 @@ def plot_static_map(
                 item["pos"][0],
                 item["pos"][1],
                 item["texto"],
-                fontsize=8.0,
+                fontsize=8.2,
                 fontweight="bold",
                 color=item.get("cor", "#94A3B8"),
                 fontstyle=item.get("estilo", "normal"),
@@ -166,13 +165,18 @@ def plot_static_map(
     ax.set_yticklabels([f"{int(y)}°N" if y > 0 else (f"{abs(int(y))}°S" if y < 0 else "0°") for y in y_ticks], fontsize=8.5, color=COLOR_TEXT_MUTED)
     ax.grid(True, linestyle=":", color="#94A3B8", alpha=0.5, zorder=5)
 
-    _draw_scale_bar(ax, x0=-49.8, y0=-9.8, length_km=300.0, lat_ref=-4.0)
-    _draw_north_arrow(ax, x=-46.8, y=1.9, size=0.65)
+    # Elimina rotulos padrao de graus que colidiam
+    ax.set_xlabel("")
+    ax.set_ylabel("")
 
+    # Rosa dos Ventos no quadrante superior direito
+    _draw_north_arrow(ax, x=-46.8, y=2.0, size=0.65)
+
+    # 1. Inset Map: Enquadramento Continental no canto inferior esquerdo
     ax_inset = inset_axes(
         ax,
-        width="26%",
-        height="28%",
+        width="24%",
+        height="26%",
         loc="lower left",
         bbox_to_anchor=(0.02, 0.03, 1, 1),
         bbox_transform=ax.transAxes,
@@ -200,17 +204,35 @@ def plot_static_map(
     ax_inset.set_ylim(-56, 14)
     ax_inset.set_xticks([])
     ax_inset.set_yticks([])
+    ax_inset.set_xlabel("")
+    ax_inset.set_ylabel("")
     for spine in ax_inset.spines.values():
         spine.set_color("#64748B")
         spine.set_linewidth(0.8)
-    ax_inset.set_title("Localizacao no Brasil", fontsize=7.5, fontweight="bold", pad=3, color="#1E293B")
+    ax_inset.set_title("Localizacao no Brasil", fontsize=7.5, fontweight="bold", pad=4, color="#1E293B")
 
+    # 2. Card Integrado de Legenda e Escala no Canto Inferior Direito
+    card = patches.Rectangle(
+        (0.63, 0.025), 0.35, 0.175,
+        transform=ax.transAxes,
+        facecolor="#FFFFFF", edgecolor="#CBD5E1", linewidth=0.9, alpha=0.96, zorder=18
+    )
+    ax.add_patch(card)
+
+    # Titulo da Legenda
+    ax.text(
+        0.805, 0.182,
+        "Taxa Media Anual de Queima (% da UC / ano, 1985 a 2023)",
+        transform=ax.transAxes,
+        ha="center", va="top", fontsize=8.2, fontweight="bold", color="#0F172A", zorder=20
+    )
+
+    # Sub-eixo para a colorbar horizontal centralizada dentro do card
     cax = inset_axes(
         ax,
-        width="38%",
-        height="2.5%",
-        loc="lower left",
-        bbox_to_anchor=(0.02, 0.35, 1, 1),
+        width="100%",
+        height="100%",
+        bbox_to_anchor=(0.665, 0.118, 0.28, 0.018),
         bbox_transform=ax.transAxes,
         borderpad=0
     )
@@ -219,10 +241,26 @@ def plot_static_map(
         cax=cax,
         orientation="horizontal"
     )
-    cbar.set_label("Taxa Media Anual de Queima (% da area da UC / ano, 1985 a 2023)", fontsize=8.0, fontweight="bold", color="#1E293B", labelpad=5)
-    cbar.ax.tick_params(labelsize=7.5, color="#1E293B")
+    cbar.ax.tick_params(labelsize=7.5, color="#1E293B", pad=2)
     cax.set_facecolor("#FFFFFF")
 
+    # Barra de Escala desenhada dentro do card inferior direito
+    km_per_deg = 111.32 * np.cos(np.radians(-4.0))
+    length_deg = 300.0 / km_per_deg
+    half_deg = length_deg / 2.0
+    x0 = -50.1
+    y0 = -9.8
+    height_deg = 0.14
+
+    rect1 = patches.Rectangle((x0, y0), half_deg, height_deg, facecolor="#0F172A", edgecolor="#0F172A", zorder=21)
+    rect2 = patches.Rectangle((x0 + half_deg, y0), half_deg, height_deg, facecolor="#F8FAFC", edgecolor="#0F172A", zorder=21)
+    ax.add_patch(rect1)
+    ax.add_patch(rect2)
+    ax.text(x0, y0 - 0.22, "0", ha="center", va="top", fontsize=7.8, color="#0F172A", fontweight="bold", zorder=22)
+    ax.text(x0 + half_deg, y0 - 0.22, "150", ha="center", va="top", fontsize=7.8, color="#0F172A", fontweight="bold", zorder=22)
+    ax.text(x0 + length_deg, y0 - 0.22, "300 km", ha="center", va="top", fontsize=7.8, color="#0F172A", fontweight="bold", zorder=22)
+
+    # Titulos e Carimbo Oficial
     fig.text(
         0.05, 0.95,
         "SISTEMA ESTADUAL DE UNIDADES DE CONSERVACAO DO PARA (IDEFLOR-BIO)",
@@ -254,9 +292,8 @@ def create_interactive_maplibre_map(
 ) -> str:
     """
     Gera mapa vetorial interativo de alta performance utilizando MapLibre GL JS.
-    Nao utiliza servidores com politicas de bloqueio (evita o erro do OpenStreetMap).
+    Utiliza maplibregl oficial, sem politicas restritivas de tiles.
     Inclui controle de camadas, escala de cores termica e tooltips interativas.
-    Retorna o codigo HTML completo como string.
     """
     with open(GEOJSON_UCS, "r", encoding="utf-8") as f:
         geo_ucs = json.load(f)
@@ -264,7 +301,6 @@ def create_interactive_maplibre_map(
     with open(GEOJSON_PARA, "r", encoding="utf-8") as f:
         geo_para = json.load(f)
 
-    # Inserir metricas agregadas nas propriedades dos poligonos
     uc_stats = df_series.groupby("uc_id").agg(
         taxa_media_pct=("taxa_queimada_pct", "mean"),
         taxa_max_pct=("taxa_queimada_pct", "max"),
@@ -294,14 +330,14 @@ def create_interactive_maplibre_map(
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mapa Interativo do Regime de Fogo nas UCs do Para (IDEFLOR-Bio)</title>
   
-  <!-- MapLibre GL JS -->
+  <!-- MapLibre GL JS Oficial -->
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 
   <style>
     * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-    body, html {{ width: 100%; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }}
-    #map {{ width: 100%; height: 100%; position: absolute; top: 0; bottom: 0; }}
+    html, body {{ width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0F172A; }}
+    #map {{ width: 100%; height: 100%; position: absolute; top: 0; bottom: 0; left: 0; right: 0; }}
 
     /* Painel Flutuante de Informacoes */
     .info-panel {{
@@ -312,13 +348,13 @@ def create_interactive_maplibre_map(
       backdrop-filter: blur(8px);
       padding: 16px 20px;
       border-radius: 8px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-      max-width: 380px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+      max-width: 360px;
       z-index: 10;
-      border: 1px solid #E2E8F0;
+      border: 1px solid #CBD5E1;
     }}
     .info-panel h1 {{
-      font-size: 15px;
+      font-size: 14.5px;
       font-weight: 700;
       color: #0F172A;
       margin-bottom: 4px;
@@ -338,9 +374,9 @@ def create_interactive_maplibre_map(
       backdrop-filter: blur(8px);
       padding: 14px 18px;
       border-radius: 8px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
       z-index: 10;
-      border: 1px solid #E2E8F0;
+      border: 1px solid #CBD5E1;
       font-size: 11.5px;
       color: #1E293B;
     }}
@@ -368,7 +404,7 @@ def create_interactive_maplibre_map(
     .maplibregl-popup-content {{
       padding: 14px 16px;
       border-radius: 8px;
-      box-shadow: 0 6px 24px rgba(0,0,0,0.2);
+      box-shadow: 0 6px 24px rgba(0,0,0,0.3);
       border: 1px solid #E2E8F0;
       font-size: 12px;
       max-width: 320px;
@@ -426,8 +462,8 @@ def create_interactive_maplibre_map(
   </div>
 
   <script>
-    // Inicializacao do MapLibre GL JS com basemap vetorial confiavel (Carto Positron livre de bloqueios)
-    const map = new maplibreGl.Map({{
+    // Inicializacao com maplibregl (em minusculo) e basemap Carto Positron livre de restricoes
+    const map = new maplibregl.Map({{
       container: 'map',
       style: {{
         version: 8,
@@ -440,7 +476,7 @@ def create_interactive_maplibre_map(
               'https://c.basemaps.cartocdn.com/light_all/{{z}}/{{x}}/{{y}}.png'
             ],
             tileSize: 256,
-            attribution: '&copy; CartoDB &copy; OpenStreetMap contributors'
+            attribution: '&copy; CartoDB &copy; OpenStreetMap'
           }}
         }},
         layers: [
@@ -454,19 +490,22 @@ def create_interactive_maplibre_map(
         ]
       }},
       center: [-52.5, -3.8],
-      zoom: 5.6
+      zoom: 5.8
     }});
 
-    // Controles de Navegacao e Escala
-    map.addControl(new maplibreGl.NavigationControl(), 'top-right');
-    map.addControl(new maplibreGl.FullscreenControl(), 'top-right');
-    map.addControl(new maplibreGl.ScaleControl({{ maxWidth: 120, unit: 'metric' }}), 'bottom-left');
+    // Forca redimensionamento para evitar canvas em branco no iframe
+    window.addEventListener('resize', () => map.resize());
+    setTimeout(() => map.resize(), 500);
+
+    map.addControl(new maplibregl.NavigationControl(), 'top-right');
+    map.addControl(new maplibregl.FullscreenControl(), 'top-right');
+    map.addControl(new maplibregl.ScaleControl({{ maxWidth: 120, unit: 'metric' }}), 'bottom-left');
 
     const ucsData = {geo_ucs_json_str};
     const paraData = {geo_para_json_str};
 
     map.on('load', () => {{
-      // 1. Fonte e camada do Limite Estadual do Para
+      // 1. Limite do Estado do Para
       map.addSource('limite-para', {{
         type: 'geojson',
         data: paraData
@@ -477,19 +516,19 @@ def create_interactive_maplibre_map(
         type: 'line',
         source: 'limite-para',
         paint: {{
-          'line-color': '#334155',
+          'line-color': '#1E293B',
           'line-width': 2.0,
           'line-dasharray': [3, 2]
         }}
       }});
 
-      // 2. Fonte e camadas das 29 Unidades de Conservacao
+      // 2. Unidades de Conservacao do IDEFLOR-Bio
       map.addSource('ucs-ideflor', {{
         type: 'geojson',
         data: ucsData
       }});
 
-      // Preenchimento coropletico continuo baseado na taxa_media_pct
+      // Preenchimento com escala termica continua
       map.addLayer({{
         id: 'ucs-fill',
         type: 'fill',
@@ -505,11 +544,11 @@ def create_interactive_maplibre_map(
             6.0, '#F03B20',
             10.0, '#BD0026'
           ],
-          'fill-opacity': 0.82
+          'fill-opacity': 0.85
         }}
       }});
 
-      // Contorno das UCs
+      // Linha de contorno das UCs
       map.addLayer({{
         id: 'ucs-line',
         type: 'line',
@@ -520,20 +559,19 @@ def create_interactive_maplibre_map(
         }}
       }});
 
-      // Destaque (Hover)
+      // Camada de Destaque no Hover
       map.addLayer({{
         id: 'ucs-highlight',
         type: 'line',
         source: 'ucs-ideflor',
         paint: {{
           'line-color': '#000000',
-          'line-width': 3.0
+          'line-width': 3.2
         }},
         filter: ['==', 'id', '']
       }});
 
-      // Popup interativo
-      const popup = new maplibreGl.Popup({{
+      const popup = new maplibregl.Popup({{
         closeButton: false,
         closeOnClick: false
       }});
@@ -541,7 +579,7 @@ def create_interactive_maplibre_map(
       map.on('mousemove', 'ucs-fill', (e) => {{
         map.getCanvas().style.cursor = 'pointer';
 
-        if (e.features.length > 0) {{
+        if (e.features && e.features.length > 0) {{
           const feat = e.features[0];
           const props = feat.properties;
 
@@ -560,7 +598,7 @@ def create_interactive_maplibre_map(
             <div class="popup-row"><span class="popup-label">Area Total:</span><span class="popup-value">${{areaHa}} ha</span></div>
             <div class="popup-row"><span class="popup-label">Taxa Media:</span><span class="popup-badge">${{taxaMedia}}% ao ano</span></div>
             <div class="popup-row"><span class="popup-label">Pico Historico:</span><span class="popup-value">${{taxaMax}}%</span></div>
-            <div class="popup-row"><span class="popup-label">Queima Total (1985-2023):</span><span class="popup-value">${{totalBurned}} ha</span></div>
+            <div class="popup-row"><span class="popup-label">Queima Total:</span><span class="popup-value">${{totalBurned}} ha</span></div>
           `;
 
           popup.setLngLat(e.lngLat).setHTML(html).addTo(map);
@@ -602,4 +640,3 @@ def display_maplibre_in_notebook(df_series: pd.DataFrame, height: int = 650):
       <iframe srcdoc="{escaped}" style="width: 100%; height: 100%; border: none;"></iframe>
     </div>
     ''')
-
