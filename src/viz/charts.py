@@ -56,7 +56,7 @@ def plot_panorama_estadual(df: pd.DataFrame, figsize=(12, 6)):
         )
 
     # Títulos e formatação
-    ax.set_title("Evolução Histórica da Área Queimada nas 29 UCs do Pará (1985–2023)", fontsize=14, fontweight="bold", pad=15)
+    ax.set_title("Evolucao Historica da Area Queimada nas 29 UCs do Para (1985 a 2023)", fontsize=14, fontweight="bold", pad=15)
     ax.set_ylabel("Área Queimada Anual (mil hectares)", fontsize=10, labelpad=10)
     ax.set_xlabel("Ano", fontsize=10, labelpad=8)
     ax.yaxis.set_major_formatter(ticker.StrMethodFormatter("{x:,.0f}"))

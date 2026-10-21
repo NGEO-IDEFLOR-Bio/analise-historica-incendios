@@ -41,7 +41,7 @@ def plot_static_map(df_series: pd.DataFrame, figsize=(11, 9)):
         edgecolor="#374151",
         legend=True,
         legend_kwds={
-            "label": "Taxa Média de Queima (% da área da UC/ano, 1985–2023)",
+            "label": "Taxa Media de Queima (% da area da UC/ano, 1985 a 2023)",
             "orientation": "horizontal",
             "shrink": 0.65,
             "pad": 0.05
@@ -94,7 +94,7 @@ def create_interactive_folium_map(df_series: pd.DataFrame, save_html: bool = Tru
         colors=["#FFFFB2", "#FECC5C", "#FD8D3C", "#F03B20", "#BD0026"],
         vmin=0.0,
         vmax=max(max_taxa, 5.0),
-        caption="Taxa Média Anual de Queima (% da UC / ano, 1985–2023)"
+        caption="Taxa Media Anual de Queima (% da UC / ano, 1985 a 2023)"
     )
     colormap.add_to(m)
 

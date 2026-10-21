@@ -28,7 +28,7 @@ Total de UCs cadastradas: **29**
 
 | ID | Unidade de Conservação | Categoria | Gerência | Criação | Área (ha) |
 | :-: | :--- | :--- | :--- | :---: | ---: |
-| 20 | Parque Estadual Monte Alegre – PEMA | PARQUE ESTADUAL | GERÊNCIA REGIONAL DA CALHA NORTE I (GRCN-I) | 2001 | 3,615.4 ha |
+| 20 | Parque Estadual Monte Alegre (PEMA) | PARQUE ESTADUAL | GERÊNCIA REGIONAL DA CALHA NORTE I (GRCN-I) | 2001 | 3,615.4 ha |
 | 7 | Área de Proteção Ambiental Paytuna | APA | GERÊNCIA REGIONAL DA CALHA NORTE I (GRCN-I) | 2001 | 57,364.5 ha |
 | 10 | Estação Ecológica Mamuru (ESEC) | ESEC | GERÊNCIA REGIONAL DA CALHA NORTE II (GRCN-II) | 2023 | 126,363.9 ha |
 | 12 | Floresta Estadual do Paru | FLOTA | GERÊNCIA REGIONAL DA CALHA NORTE II (GRCN-II) | 2006 | 3,046,876.2 ha |
@@ -45,7 +45,7 @@ Total de UCs cadastradas: **29**
 | 28 | Reserva de Desenvolvimento Sustentável Pucuruí-Ararão | RDS | GERÊNCIA REGIONAL DE TUCURUÍ (GRTUC) | 2002 | 28,842.6 ha |
 | 5 | Área de Proteção Ambiental do Lago de Tucuruí | APA | GERÊNCIA REGIONAL DE TUCURUÍ (GRTUC) | 1997 | 485,317.4 ha |
 | 18 | Parque Estadual da Serra dos Martírios/Andorinhas | PARQUE ESTADUAL | GERÊNCIA REGIONAL DO ARAGUAIA (GRA) | 1996 | 25,031.8 ha |
-| 4 | Área de Proteção Ambiental de São Geraldo do Araguaia – APA Araguaia | APA | GERÊNCIA REGIONAL DO ARAGUAIA (GRA) | 1996 | 26,831.8 ha |
+| 4 | Área de Proteção Ambiental de São Geraldo do Araguaia (APA Araguaia) | APA | GERÊNCIA REGIONAL DO ARAGUAIA (GRA) | 1996 | 26,831.8 ha |
 | 17 | Parque Estadual Charapucu | PARQUE ESTADUAL | GERÊNCIA REGIONAL DO MARAJÓ (GRM) | 2010 | 65,223.7 ha |
 | 6 | Área de Proteção Ambiental do Marajó | APA | GERÊNCIA REGIONAL DO MARAJÓ (GRM) | 1989 | 4,534,900.6 ha |
 | 15 | Monumento Natural Atalaia (MONA) | MONA | GERÊNCIA REGIONAL DO NORDESTE (GRNE) | 2018 | 247.9 ha |
