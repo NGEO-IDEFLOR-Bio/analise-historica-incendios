@@ -178,3 +178,53 @@ def plot_uc_before_after(df: pd.DataFrame, uc_id: int, figsize=(12, 6)):
 
     plt.tight_layout()
     return fig, ax
+
+def plot_matriz_intensidade_unidades(
+    df: pd.DataFrame,
+    gerencia_filtro: Optional[str] = None,
+    figsize=(18, 11)
+):
+    """
+    Matriz de Intensidade Temporal por Unidade de Conservacao (agrupadas por Gerencia Regional).
+    Permite visualizar a taxa anual de queima (% da UC) de 1985 a 2026 para cada uma das UCs.
+    """
+    apply_ggplot_theme()
+    
+    df_plot = df.copy()
+    if gerencia_filtro and gerencia_filtro != "TODAS":
+        df_plot = df_plot[df_plot["gerencia"].str.contains(gerencia_filtro, regex=False, na=False)]
+    
+    df_plot["sigla_ger"] = df_plot["gerencia"].map(SIGLAS_GERENCIAS).fillna(df_plot["gerencia"])
+    df_plot["uc_label"] = "[" + df_plot["sigla_ger"] + "] " + df_plot["uc_nome"]
+    
+    ordem_ucs = df_plot[["uc_label", "sigla_ger", "uc_nome"]].drop_duplicates().sort_values(["sigla_ger", "uc_nome"])["uc_label"].tolist()
+    
+    pivot_ucs = df_plot.pivot_table(
+        index="uc_label",
+        columns="ano",
+        values="taxa_queimada_pct",
+        aggfunc="first"
+    ).reindex(ordem_ucs).fillna(0.0)
+    
+    fig, ax = plt.subplots(figsize=figsize)
+    sns.heatmap(
+        pivot_ucs,
+        cmap="YlOrRd",
+        linewidths=0.3,
+        linecolor="#CBD5E1",
+        cbar_kws={"label": "Taxa Anual de Queima (% da UC)", "shrink": 0.75},
+        ax=ax
+    )
+    
+    titulo = "Matriz de Intensidade Temporal por Unidade de Conservacao (1985 a 2026)"
+    if gerencia_filtro and gerencia_filtro != "TODAS":
+        titulo += f" - {gerencia_filtro}"
+        
+    ax.set_title(titulo, fontsize=13, fontweight="bold", pad=12)
+    ax.set_xlabel("Ano", fontsize=10, fontweight="bold")
+    ax.set_ylabel("Unidade de Conservacao (agrupada por Gerencia)", fontsize=10, fontweight="bold")
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=45, fontsize=8.5)
+    ax.set_yticklabels(ax.get_yticklabels(), fontsize=8.5)
+    
+    plt.tight_layout()
+    return fig, ax

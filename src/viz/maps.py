@@ -119,10 +119,14 @@ def plot_static_map(
     fig.patches.append(neatline)
 
     # Coordenadas internas calibradas para folga perfeita dos rotulos e ausencia de cortes
-    ax_head = fig.add_axes([0.035, 0.895, 0.930, 0.065])
-    ax_main = fig.add_axes([0.088, 0.082, 0.624, 0.798])
-    ax_inset = fig.add_axes([0.730, 0.510, 0.235, 0.370])
-    ax_side = fig.add_axes([0.730, 0.040, 0.235, 0.450])
+    # Coordenadas internas com espacamento uniforme (gap = 0.015) e alinhamento milimetrico
+    # ax_main e ax_inset perfeitamente alinhados no topo (0.880)
+    # ax_main e ax_side perfeitamente alinhados na base (0.075)
+    # ax_inset e ax_side com largura identica (0.240) e alinhados a direita (0.965)
+    ax_head  = fig.add_axes([0.035, 0.895, 0.930, 0.065])
+    ax_main  = fig.add_axes([0.085, 0.075, 0.625, 0.805])
+    ax_inset = fig.add_axes([0.725, 0.525, 0.240, 0.355])
+    ax_side  = fig.add_axes([0.725, 0.075, 0.240, 0.435])
 
     # Garantir expressamente a visibilidade de todas as quatro bordas em todos os quadrantes
     for ax in [ax_head, ax_main, ax_inset, ax_side]:
@@ -275,19 +279,24 @@ def plot_static_map(
     ax_inset.text(-50, 4.0, "Brasil", fontsize=9, fontweight="bold", color="#334155", ha="center")
     ax_inset.text(-36, -15, "Oceano\nAtlântico", fontsize=8, fontstyle="italic", color="#0284C7", ha="center")
 
-    # Eliminacao total de eixos e rotulos indesejados no mapa de enquadramento
+    # Grade e rotulos de coordenadas do mapa de localizacao
     ax_inset.set_xlabel("")
     ax_inset.set_ylabel("")
-    ax_inset.xaxis.label.set_visible(False)
-    ax_inset.yaxis.label.set_visible(False)
-    ax_inset.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+    x_ticks_inset = [-70, -50, -30]
+    y_ticks_inset = [-30, -15, 0]
+    ax_inset.set_xticks(x_ticks_inset)
+    ax_inset.set_yticks(y_ticks_inset)
+    ax_inset.set_xticklabels([f"{abs(x)}°W" for x in x_ticks_inset], fontsize=6.5, color="#334155")
+    ax_inset.set_yticklabels([f"{abs(y)}°S" if y < 0 else ("0°" if y == 0 else f"{y}°N") for y in y_ticks_inset], fontsize=6.5, color="#334155")
+    ax_inset.tick_params(axis="both", which="both", labelsize=6.5, length=2.5, width=0.6, color="#475569", pad=2)
+    ax_inset.grid(True, linestyle=":", color="#94A3B8", alpha=0.45, linewidth=0.5)
 
     # 4. COLUNA DIREITA - PAINEL INFERIOR: LEGENDA E CARIMBO INSTITUCIONAL
     ax_side.set_facecolor("#FFFFFF")
     ax_side.set_xticks([])
     ax_side.set_yticks([])
 
-    ax_side.axhline(0.38, color="#000000", linewidth=1.2)
+    ax_side.axhline(0.40, color="#000000", linewidth=1.2)
 
     # 4.1. SECAO DA LEGENDA
     ax_side.text(0.06, 0.94, "LEGENDA", fontsize=11, fontweight="bold", color="#000000", va="top")

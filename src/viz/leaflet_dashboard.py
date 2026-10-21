@@ -63,6 +63,9 @@ def create_interactive_leaflet_dashboard(
         cat = meta_row["categoria"].values[0] if not meta_row.empty else str(row.get("categoria", ""))
         grp = meta_row["grupo"].values[0] if not meta_row.empty else str(row.get("grupo", ""))
         ger = meta_row["gerencia"].values[0] if not meta_row.empty else str(row.get("gerencia", ""))
+        ger_sigla = ""
+        if "(" in ger and ")" in ger:
+            ger_sigla = ger.split("(")[-1].replace(")", "").strip()
         criacao = int(meta_row["ano_criacao"].values[0]) if not meta_row.empty and not pd.isna(meta_row["ano_criacao"].values[0]) else None
         
         geom_2d = json.loads(json.dumps(mapping(row["geometry"])))
@@ -78,6 +81,7 @@ def create_interactive_leaflet_dashboard(
                 "categoria": cat,
                 "grupo": grp,
                 "gerencia": ger,
+                "gerencia_sigla": ger_sigla,
                 "criacao": criacao,
                 "area_ha": float(row["area_ha"]),
                 "taxa_media": round(float(st["taxa_media"]), 2),
@@ -753,14 +757,16 @@ def create_interactive_leaflet_dashboard(
       let totalArea = 0;
       let sumTaxa = 0;
       const activeIds = [];
+      const visibleBounds = L.latLngBounds([]);
 
       ucsLayer.eachLayer(layer => {{
         const p = layer.feature.properties;
-        const matchGer = (gerVal === 'TODAS') || (p.gerencia && p.gerencia.includes(gerVal));
+        const matchGer = (gerVal === 'TODAS') || (p.gerencia_sigla === gerVal) || (p.gerencia && p.gerencia.includes('(' + gerVal + ')'));
         const matchGrp = (grpVal === 'TODOS') || (p.grupo === grpVal);
 
         if (matchGer && matchGrp) {{
           layer.setStyle({{ opacity: 1, fillOpacity: 0.88 }});
+          visibleBounds.extend(layer.getBounds());
           count++;
           totalArea += (p.area_ha || 0);
           sumTaxa += (p.taxa_media || 0);
@@ -769,6 +775,24 @@ def create_interactive_leaflet_dashboard(
           layer.setStyle({{ opacity: 0, fillOpacity: 0 }});
         }}
       }});
+
+      // Interação de zoom dinâmica com os filtros
+      if (visibleBounds.isValid() && count > 0) {{
+        if (gerVal === 'TODAS' && grpVal === 'TODOS') {{
+          map.fitBounds([[-9.9, -58.9], [2.5, -46.0]], {{
+            paddingTopLeft: [290, 20],
+            paddingBottomRight: [20, 20],
+            animate: true
+          }});
+        }} else {{
+          map.fitBounds(visibleBounds, {{
+            paddingTopLeft: [300, 40],
+            paddingBottomRight: [40, 40],
+            maxZoom: 10,
+            animate: true
+          }});
+        }}
+      }}
 
       const taxaMedia = count > 0 ? (sumTaxa / count) : 0;
       document.getElementById('stat-count').textContent = count;
@@ -862,11 +886,12 @@ def create_interactive_leaflet_dashboard(
 
       renderUCChart(s, s.ano_criacao);
 
-      // Focar na geometria
+      // Focar na geometria com zoom suave e ajuste de margem
       map.fitBounds(layer.getBounds(), {{
-        paddingTopLeft: [300, 50],
-        paddingBottomRight: [380, 50],
-        maxZoom: 9
+        paddingTopLeft: [320, 50],
+        paddingBottomRight: [400, 50],
+        maxZoom: 11,
+        animate: true
       }});
     }}
 

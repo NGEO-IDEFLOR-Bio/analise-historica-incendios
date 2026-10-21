@@ -115,7 +115,12 @@ from IPython.display import display
 
 from src.config import CSV_METADATA_UCS, GEOJSON_UCS, DATA_PROCESSED
 from src.viz.theme import apply_ggplot_theme, COLOR_FIRE_MAIN, COLOR_FIRE_LIGHT, COLOR_PRE_CREATION, COLOR_POST_CREATION
-from src.viz.charts import plot_panorama_estadual, plot_comparativo_gerencias, plot_uc_before_after
+from src.viz.charts import (
+    plot_panorama_estadual,
+    plot_comparativo_gerencias,
+    plot_uc_before_after,
+    plot_matriz_intensidade_unidades
+)
 from src.viz.maps import plot_static_map, create_interactive_maplibre_map, display_maplibre_in_notebook
 
 apply_ggplot_theme()
@@ -173,6 +178,40 @@ plt.ylabel("Gerencia Regional", fontsize=10, fontweight="bold")
 plt.xticks(rotation=45)
 plt.tight_layout()
 plt.show()
+"""))
+
+    # 8.1 MATRIZ DE CALOR POR UNIDADE DE CONSERVACAO (AGRUPADAS POR GERENCIA)
+    cells.append(make_cell("markdown", """### Matriz de Intensidade Temporal por Unidade de Conservacao
+
+Distribuicao analitica da taxa anual de queima (% da area da UC) para cada uma das 29 Unidades de Conservacao Estaduais de 1985 a 2026, agrupadas por sua respectiva Gerencia Regional.
+"""))
+
+    cells.append(make_cell("code", """# Matriz de calor completa com todas as 29 UCs agrupadas por Gerencia Regional
+fig, ax = plot_matriz_intensidade_unidades(df_series, figsize=(18, 11))
+plt.show()
+"""))
+
+    cells.append(make_cell("markdown", """### Filtro da Matriz por Gerencia Regional Especifica
+
+O seletor abaixo permite inspecionar a matriz temporal das Unidades de Conservacao de forma individualizada para cada Gerencia Regional.
+"""))
+
+    cells.append(make_cell("code", """# Seletor interativo da matriz por Gerencia Regional
+gerencias_opcoes = ["TODAS"] + sorted([g for g in df_series["gerencia"].dropna().unique() if g])
+
+dropdown_ger_matriz = widgets.Dropdown(
+    options=gerencias_opcoes,
+    value="TODAS",
+    description="Gerência:",
+    layout=widgets.Layout(width="550px")
+)
+
+def atualizar_matriz_gerencia(gerencia_sel):
+    altura = 11 if gerencia_sel == "TODAS" else max(4, len(df_series[df_series["gerencia"] == gerencia_sel]["uc_id"].unique()) * 0.9 + 2)
+    fig, ax = plot_matriz_intensidade_unidades(df_series, gerencia_filtro=gerencia_sel, figsize=(16, altura))
+    plt.show()
+
+widgets.interact(atualizar_matriz_gerencia, gerencia_sel=dropdown_ger_matriz)
 """))
 
     # 9. ANALISE COMPARATIVA: PROTECAO INTEGRAL VS USO SUSTENTAVEL
@@ -252,23 +291,32 @@ widgets.interact(atualizar_grafico_uc, uc_id=dropdown_uc)
 Espacializacao geografica das 29 Unidades de Conservacao classificadas pela taxa media anual de queima registrada entre 1985 e 2026.
 """))
 
-    cells.append(make_cell("code", """# Prancha cartografica oficial com contexto regional, escala grafica e mapa de enquadramento
+    cells.append(make_cell("code", """# Prancha cartografica oficial da media historica (1985 a 2026)
 fig, ax = plot_static_map(df_series, figsize=(16, 11))
 plt.show()
 """))
 
-    cells.append(make_cell("markdown", """### Prancha Cartográfica Temática por Ano Específico
+    cells.append(make_cell("markdown", """### Prancha Cartográfica Temática Interativa por Ano Específico
 
-Geração de prancha cartográfica estática oficial parametrizada por ano (1985 a 2026), permitindo analisar a severidade espacial das cicatrizes em qualquer ano selecionado.
+Utilize o controle deslizante abaixo para selecionar qualquer ano da série temporal (1985 a 2026). A prancha temática estática oficial do NGEO / IDEFLOR-Bio será renderizada instantaneamente para o ano escolhido.
 """))
 
-    cells.append(make_cell("code", """# Mapeamento do ano mais recente da série integrada
-ano_recente = int(df_series["ano"].max())
-fig_ano, ax_ano = plot_static_map(df_series, ano=ano_recente, figsize=(16, 11))
-plt.show()
+    cells.append(make_cell("code", """# Seletor interativo para escolha e geracao da prancha cartografica estatica por ano
+slider_ano = widgets.IntSlider(
+    min=int(df_series["ano"].min()),
+    max=int(df_series["ano"].max()),
+    step=1,
+    value=int(df_series["ano"].max()),
+    description="Ano:",
+    continuous_update=False,
+    layout=widgets.Layout(width="550px")
+)
 
-# Para alternar interativamente entre os anos no próprio notebook, utilize o controle deslizante:
-# widgets.interact(lambda ano: plot_static_map(df_series, ano=ano, figsize=(16, 11)), ano=widgets.IntSlider(min=int(df_series["ano"].min()), max=int(df_series["ano"].max()), step=1, value=ano_recente, description="Ano:"))
+def renderizar_mapa_ano(ano_escolhido):
+    fig_ano, ax_ano = plot_static_map(df_series, ano=ano_escolhido, figsize=(16, 11))
+    plt.show()
+
+widgets.interact(renderizar_mapa_ano, ano_escolhido=slider_ano)
 """))
 
     cells.append(make_cell("markdown", """### Mini Dashboard Analítico Interativo (MapLibre GL JS)
