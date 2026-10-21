@@ -1,9 +1,9 @@
 """
 Módulo de inicialização e autenticação universal com o Google Earth Engine.
 Suporta de forma transparente:
-1. Google Colab: autenticação interativa nativa (ee.Authenticate / ee.Initialize)
-2. Ambiente Local com Service Account (secrets/*.json)
-3. Ambiente Local com credenciais de usuário (gcloud / ee.Authenticate)
+1. Google Colab: autenticação interativa nativa (ee.Authenticate / ee.Initialize) com suporte a projeto customizado do usuário.
+2. Ambiente Local com Service Account (secrets/*.json).
+3. Ambiente Local com credenciais de usuário (gcloud / ee.Authenticate).
 """
 import sys
 from pathlib import Path
@@ -31,21 +31,39 @@ def init_gee(project_id: Optional[str] = None, force: bool = False) -> bool:
     if _EE_INITIALIZED and not force:
         return True
 
-    proj = project_id or GEE_PROJECT_ID
     is_colab = "google.colab" in sys.modules
+
+    # Tratamento do ID do projeto informado
+    proj = project_id.strip() if (project_id and isinstance(project_id, str) and project_id.strip()) else None
+    if proj and (proj.startswith("seu-projeto") or proj.lower() == "none"):
+        proj = None
+
+    # No Google Colab, não aplicar o fallback da Service Account local privada (evita erro 403 Forbidden)
+    if not proj and not is_colab:
+        proj = GEE_PROJECT_ID
 
     # 1. Fluxo Interativo Nativo no Google Colab
     if is_colab:
+        init_kwargs = {"project": proj} if proj else {}
         try:
-            ee.Initialize(project=proj)
+            ee.Initialize(**init_kwargs)
             _EE_INITIALIZED = True
             return True
         except Exception:
-            print("Iniciando autenticação interativa do Google Earth Engine no Colab...")
+            print("Iniciando autenticacao interativa do Google Earth Engine no Colab...")
             ee.Authenticate()
-            ee.Initialize(project=proj)
-            _EE_INITIALIZED = True
-            return True
+            try:
+                ee.Initialize(**init_kwargs)
+                _EE_INITIALIZED = True
+                return True
+            except Exception as e:
+                if not proj:
+                    print(
+                        "\nDica: O Google Earth Engine no Colab requer um Google Cloud Project associado a sua conta.\n"
+                        "Defina a variavel GEE_PROJECT com o ID do seu projeto na celula acima\n"
+                        "(ex: GEE_PROJECT = 'ee-seu-usuario' ou 'seu-projeto-gcp') e execute a celula novamente.\n"
+                    )
+                raise e
 
     # 2. Fluxo via Service Account (Ambiente Local com chave privada)
     if GEE_CREDENTIALS_JSON.exists():
@@ -57,25 +75,26 @@ def init_gee(project_id: Optional[str] = None, force: bool = False) -> bool:
                     "https://www.googleapis.com/auth/cloud-platform"
                 ]
             )
-            ee.Initialize(credentials=credentials, project=proj)
+            ee.Initialize(credentials=credentials, project=proj or GEE_PROJECT_ID)
             _EE_INITIALIZED = True
             return True
         except Exception as e:
-            print(f"Aviso: falha na autenticação com Service Account ({e}). Tentando método padrão...")
+            print(f"Aviso: falha na autenticacao com Service Account ({e}). Tentando metodo padrao...")
 
-    # 3. Fluxo Padrão / Interativo Local (gcloud auth ou ee.Authenticate)
+    # 3. Fluxo Padrao / Interativo Local (gcloud auth ou ee.Authenticate)
+    init_kwargs = {"project": proj} if proj else {}
     try:
-        ee.Initialize(project=proj)
+        ee.Initialize(**init_kwargs)
         _EE_INITIALIZED = True
         return True
     except Exception:
-        print("Sessão GEE não encontrada. Abrindo navegador para autenticação interativa...")
+        print("Sessao GEE nao encontrada. Abrindo navegador para autenticacao interativa...")
         ee.Authenticate()
-        ee.Initialize(project=proj)
+        ee.Initialize(**init_kwargs)
         _EE_INITIALIZED = True
         return True
 
 if __name__ == "__main__":
-    print(f"Testando inicialização GEE com projeto '{GEE_PROJECT_ID}'...")
+    print(f"Testando inicializacao GEE com projeto '{GEE_PROJECT_ID}'...")
     init_gee()
     print("Google Earth Engine inicializado com sucesso!")

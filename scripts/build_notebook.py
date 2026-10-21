@@ -88,20 +88,24 @@ print(f"Raiz do projeto configurada: {ROOT_DIR}")
     cells.append(make_cell("markdown", """### Conexao Universal com o Google Earth Engine (GEE)
 
 Este notebook conta com autenticacao adaptativa:
-* **No Google Colab:** Conecta de forma interativa com a sua conta Google em um pop-up de 1 clique, sem necessidade de arquivos de chave privada.
-* **No ambiente local:** Utiliza credenciais de Service Account ou sessao de usuario ativa.
+* **No Google Colab:** Conecta de forma interativa com a sua conta Google em um pop-up de 1 clique, sem necessidade de arquivos de chave privada. O Google Earth Engine requer a indicacao de um Google Cloud Project associado a sua conta.
+* **No ambiente local:** Utiliza credenciais de Service Account ou sessao de usuario ativa configurada via `gcloud`.
 
-A base historica integrada (1985 a 2026) ja vem pre-processada no repositorio para execucao imediata de todos os graficos e mapas; a conexao com o GEE permite reprocessar cicatrizes sob demanda.
+> Caso voce queira conectar ao Earth Engine no Colab para reprocessamento ou extracao sob demanda, insira o ID do seu projeto Google Cloud na variavel `GEE_PROJECT` abaixo (ex: `"ee-seu-usuario"` ou `"meu-projeto"`).
+> Se nao tiver ou preferir nao conectar ao GEE agora, a base historica integrada (1985 a 2026) ja vem pre-processada e pronta no repositorio para execucao imediata de todas as analises, matrizes e mapas!
 """))
 
-    cells.append(make_cell("code", """# Conexao interativa com o Google Earth Engine
+    cells.append(make_cell("code", """# Configuracao do Projeto Google Cloud e Inicializacao do Earth Engine
+# Defina o ID do seu Google Cloud Project com acesso ao Earth Engine:
+GEE_PROJECT = ""  # Exemplo: "ee-seu-usuario" ou "meu-projeto-gee"
+
 from src.gee_auth import init_gee
 
 try:
-    init_gee()
+    init_gee(project_id=GEE_PROJECT if GEE_PROJECT else None)
     print("Google Earth Engine inicializado com sucesso!")
 except Exception as e:
-    print(f"Aviso: GEE nao inicializado ({e}). As analises continuam normalmente usando os dados locais.")
+    print(f"Aviso: GEE nao inicializado ({e}). As analises continuam normalmente usando os dados locais pre-processados.")
 """))
 
     # 5. SETUP E IMPORTACOES
