@@ -20,6 +20,9 @@ import geopandas as gpd
 from shapely.geometry import mapping
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import folium
+from folium import plugins
+import branca.colormap as cm
 
 from src.config import (
     GEOJSON_UCS,
@@ -1303,16 +1306,131 @@ def create_interactive_maplibre_map(
 
     return html_template
 
+def create_interactive_folium_map(
+    df_series: pd.DataFrame,
+    save_html: bool = True,
+    output_path: Optional[Path] = None
+) -> folium.Map:
+    """
+    Gera mapa interativo de alta compatibilidade e estabilidade nativa no Folium (Leaflet):
+    - Camadas base gratuitas sem bloqueio de API key (Esri Canvas Claro, Esri Satélite, OpenStreetMap)
+    - Limite Estadual do Pará destacado
+    - Separação das 29 Unidades de Conservação por Gerências Regionais como camadas ativáveis/desativáveis
+    - Estilização temática por classes de queima histórica
+    - Tooltips completas com métricas consolidadas (área, taxa média, total queimado, criação)
+    - Barra de escala cromática e controle de tela cheia
+    """
+    gdf_ucs = gpd.read_file(GEOJSON_UCS)
+    gdf_para = gpd.read_file(GEOJSON_PARA)
+
+    # Normalizar datas para evitar erros de serializacao json
+    for col in gdf_ucs.columns:
+        if pd.api.types.is_datetime64_any_dtype(gdf_ucs[col]):
+            gdf_ucs[col] = gdf_ucs[col].astype(str)
+
+    # Simplificacao suave para garantir alta responsividade em navegadores e no Google Colab
+    gdf_ucs_simp = gdf_ucs.copy()
+    gdf_ucs_simp["geometry"] = gdf_ucs_simp.geometry.simplify(0.002, preserve_topology=True)
+    gdf_para_simp = gdf_para.copy()
+    gdf_para_simp["geometry"] = gdf_para_simp.geometry.simplify(0.005, preserve_topology=True)
+
+    # Consolidar estatisticas historicas por UC
+    stats = df_series.groupby("uc_nome").agg(
+        taxa_media=("taxa_queimada_pct", "mean"),
+        burned_total=("burned_ha", "sum")
+    ).reset_index().set_index("uc_nome").to_dict("index")
+
+    gdf_ucs_simp["taxa_media"] = gdf_ucs_simp["name"].map(lambda x: round(stats.get(x, {}).get("taxa_media", 0.0), 2))
+    gdf_ucs_simp["burned_total"] = gdf_ucs_simp["name"].map(lambda x: round(stats.get(x, {}).get("burned_total", 0.0), 1))
+
+    # Inicializar mapa no centro geografico do Para
+    m = folium.Map(location=[-3.8, -52.5], zoom_start=6, tiles=None)
+
+    # 1. Esri Light Gray Canvas (gratuito e clean institucional)
+    folium.TileLayer(
+        tiles="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+        attr="Esri, HERE, &copy; OpenStreetMap contributors",
+        name="Mapa Base Claro (Esri Canvas)",
+        control=True
+    ).add_to(m)
+
+    # 2. Esri World Imagery (satélite de alta resolução sem chave paga)
+    folium.TileLayer(
+        tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        attr="Esri, Maxar, Earthstar Geographics",
+        name="Satélite de Alta Resolução (Esri)",
+        control=True
+    ).add_to(m)
+
+    # 3. OpenStreetMap oficial padrao
+    folium.TileLayer(
+        tiles="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        attr="&copy; OpenStreetMap contributors",
+        name="OpenStreetMap (Vias e Localidades)",
+        control=True
+    ).add_to(m)
+
+    # Limite Estadual do Pará
+    folium.GeoJson(
+        gdf_para_simp,
+        name="Limite Estadual do Pará",
+        style_function=lambda x: {"fillColor": "transparent", "color": "#0F172A", "weight": 2, "dashArray": "4, 4"}
+    ).add_to(m)
+
+    def get_cor(t: float) -> str:
+        if t <= 0.5:
+            return "#FFFFB2"
+        if t <= 2.0:
+            return "#FECC5C"
+        if t <= 4.0:
+            return "#FD8D3C"
+        if t <= 7.0:
+            return "#F03B20"
+        return "#BD0026"
+
+    # Separação por Gerências Regionais como camadas ativáveis/desativáveis
+    gerencias = sorted([g for g in gdf_ucs_simp["gerencia"].dropna().unique()])
+    for ger in gerencias:
+        subset = gdf_ucs_simp[gdf_ucs_simp["gerencia"] == ger]
+        fg = folium.FeatureGroup(name=f"Gerência: {ger}", show=True)
+        folium.GeoJson(
+            subset,
+            style_function=lambda f: {
+                "fillColor": get_cor(f["properties"].get("taxa_media", 0)),
+                "color": "#000000",
+                "weight": 1.2,
+                "fillOpacity": 0.85
+            },
+            highlight_function=lambda f: {"weight": 3.5, "color": "#000000", "fillOpacity": 1.0},
+            tooltip=folium.GeoJsonTooltip(
+                fields=["name", "gerencia", "categoria", "grupo", "criacao", "area_ha", "taxa_media", "burned_total"],
+                aliases=["UC:", "Gerência Regional:", "Categoria:", "Grupo SNUC:", "Criação:", "Área (ha):", "Taxa Média/Ano (%):", "Total Queimado (ha):"],
+                localize=True,
+                sticky=True
+            )
+        ).add_to(fg)
+        fg.add_to(m)
+
+    # Escala de cores temática padronizada
+    colormap = cm.StepColormap(
+        colors=["#FFFFB2", "#FECC5C", "#FD8D3C", "#F03B20", "#BD0026"],
+        index=[0.0, 0.5, 2.0, 4.0, 7.0, 15.0],
+        vmin=0.0,
+        vmax=15.0,
+        caption="Taxa Média Histórica de Queima (% da UC / ano)"
+    )
+    colormap.add_to(m)
+
+    folium.LayerControl(position="topright", collapsed=False).add_to(m)
+    plugins.Fullscreen(position="topright").add_to(m)
+
+    if save_html:
+        dest_html = output_path or (DATA_OUTPUT / "mapa_interativo_fogo_ucs.html")
+        m.save(str(dest_html))
+        print(f"Mapa interativo Folium salvo com sucesso em: {dest_html}")
+
+    return m
+
 def display_maplibre_in_notebook(df_series: pd.DataFrame, height: int = 750):
-    """Gera e exibe o dashboard interativo MapLibre GL JS diretamente no notebook."""
-    from IPython.display import HTML
-    import html as py_html
-
-    html_raw = create_interactive_maplibre_map(df_series, save_html=True)
-    escaped = py_html.escape(html_raw, quote=True)
-
-    return HTML(f'''
-    <div style="width: 100%; height: {height}px; border: 1px solid #CBD5E1; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.15);">
-      <iframe srcdoc="{escaped}" style="width: 100%; height: 100%; border: none;" allow="fullscreen"></iframe>
-    </div>
-    ''')
+    """Gera e exibe o mapa interativo Folium diretamente no notebook com 100% de compatibilidade."""
+    return create_interactive_folium_map(df_series, save_html=True)
