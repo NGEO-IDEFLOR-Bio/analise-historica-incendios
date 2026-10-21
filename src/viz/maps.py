@@ -343,17 +343,32 @@ def create_interactive_maplibre_map(df_series: pd.DataFrame, save_html: bool = T
 def display_maplibre_in_notebook(df_series: pd.DataFrame, height: int = 750):
     """
     Gera e exibe o Mini Dashboard analitico interativo diretamente no notebook.
-    Utiliza iframe com srcdoc para compatibilidade total e imediata no Google Colab e VS Code.
+    Utiliza iframe com srcdoc para compatibilidade total e imediata no Google Colab e VS Code,
+    incluindo botao para abertura direta em nova aba do navegador.
     """
     from IPython.display import HTML
     import html as py_html
+    import uuid
 
     html_raw = create_interactive_leaflet_dashboard(df_series, save_html=True)
     escaped = py_html.escape(html_raw, quote=True)
+    uid = uuid.uuid4().hex[:8]
+    iframe_id = f"dashboard_frame_{uid}"
 
     return HTML(f'''
+    <div style="margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+      <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 12px; font-weight: 600; color: #475569;">
+        Painel Espacial Interativo de Queimadas (IDEFLOR-Bio)
+      </span>
+      <a href="data/output/mapa_interativo_fogo_ucs.html" target="_blank"
+         onclick="try {{ const w = window.open(); const doc = document.getElementById('{iframe_id}').getAttribute('srcdoc'); w.document.open(); w.document.write(doc); w.document.close(); return false; }} catch(e) {{ return true; }}"
+         style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 12px; font-weight: 700; color: #1E3A8A; background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 6px; text-decoration: none; box-shadow: 0 1px 3px rgba(0,0,0,0.06); cursor: pointer; transition: all 0.2s ease;">
+        <span>Abrir em Nova Aba</span>
+        <span style="font-size: 14px;">↗</span>
+      </a>
+    </div>
     <div style="width: 100%; height: {height}px; border: 1px solid #CBD5E1; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.15); background: #0F172A;">
-      <iframe srcdoc="{escaped}" style="width: 100%; height: 100%; border: none;" allow="fullscreen"></iframe>
+      <iframe id="{iframe_id}" srcdoc="{escaped}" style="width: 100%; height: 100%; border: none;" allow="fullscreen"></iframe>
     </div>
     ''')
 

@@ -408,11 +408,41 @@ def create_interactive_leaflet_dashboard(
       white-space: nowrap;
     }}
 
-    /* Legenda Cartografica Compacta */
+    /* Botao de Tela Cheia no Canto Superior Direito */
+    .fullscreen-btn {{
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      z-index: 1000;
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(8px);
+      border: 1px solid #CBD5E1;
+      border-radius: 6px;
+      padding: 6px 11px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #0F172A;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s ease;
+    }}
+    .fullscreen-btn:hover {{
+      background: #F1F5F9;
+      color: #0284C7;
+      border-color: #94A3B8;
+    }}
+    .leaflet-top.leaflet-right {{
+      margin-top: 48px;
+    }}
+
+    /* Legenda Cartografica Compacta no Canto Inferior Direito */
     .legend {{
       position: absolute;
       bottom: 14px;
-      left: 14px;
+      right: 14px;
       background: rgba(255, 255, 255, 0.95);
       backdrop-filter: blur(8px);
       padding: 6px 10px;
@@ -495,6 +525,9 @@ def create_interactive_leaflet_dashboard(
 
   <!-- Orientacao no topo -->
   <div class="top-hint">Clique em uma UC no mapa ou alterne para Análise por Unidade</div>
+
+  <!-- Botao de Tela Cheia Superior Direito -->
+  <button id="btn-fullscreen" class="fullscreen-btn" title="Alternar Modo Tela Cheia">⛶ Tela Cheia</button>
 
   <!-- Painel Lateral Unificado Inteligente -->
   <div id="left-panel" class="left-panel">
@@ -683,7 +716,32 @@ def create_interactive_leaflet_dashboard(
       zoomControl: false
     }});
 
-    L.control.zoom({{ position: 'bottomright' }}).addTo(map);
+    L.control.zoom({{ position: 'topright' }}).addTo(map);
+
+    // Controle do Botao de Tela Cheia
+    const btnFullscreen = document.getElementById('btn-fullscreen');
+    btnFullscreen.addEventListener('click', () => {{
+      if (!document.fullscreenElement) {{
+        document.documentElement.requestFullscreen().catch(err => {{
+          console.warn('Modo tela cheia bloqueado pelo navegador:', err);
+        }});
+        btnFullscreen.textContent = '✕ Sair';
+      }} else {{
+        if (document.exitFullscreen) {{
+          document.exitFullscreen();
+        }}
+        btnFullscreen.textContent = '⛶ Tela Cheia';
+      }}
+    }});
+
+    document.addEventListener('fullscreenchange', () => {{
+      if (!document.fullscreenElement) {{
+        btnFullscreen.textContent = '⛶ Tela Cheia';
+      }} else {{
+        btnFullscreen.textContent = '✕ Sair';
+      }}
+      setTimeout(() => map.invalidateSize(), 200);
+    }});
 
     // Camadas Base
     const layerGray = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{{z}}/{{y}}/{{x}}', {{

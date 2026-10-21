@@ -111,7 +111,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import geopandas as gpd
 import ipywidgets as widgets
-from IPython.display import display
+from IPython.display import display, clear_output
 
 from src.config import CSV_METADATA_UCS, GEOJSON_UCS, DATA_PROCESSED
 from src.viz.theme import apply_ggplot_theme, COLOR_FIRE_MAIN, COLOR_FIRE_LIGHT, COLOR_PRE_CREATION, COLOR_POST_CREATION
@@ -196,7 +196,7 @@ plt.show()
 O seletor abaixo permite inspecionar a matriz temporal das Unidades de Conservacao de forma individualizada para cada Gerencia Regional.
 """))
 
-    cells.append(make_cell("code", """# Seletor interativo da matriz por Gerencia Regional
+    cells.append(make_cell("code", """# Seletor interativo da matriz por Gerencia Regional com saida estavel
 gerencias_opcoes = ["TODAS"] + sorted([g for g in df_series["gerencia"].dropna().unique() if g])
 
 dropdown_ger_matriz = widgets.Dropdown(
@@ -206,11 +206,18 @@ dropdown_ger_matriz = widgets.Dropdown(
     layout=widgets.Layout(width="550px")
 )
 
-def atualizar_matriz_gerencia(gerencia_sel):
-    fig, ax = plot_matriz_intensidade_unidades(df_series, gerencia_filtro=gerencia_sel)
-    plt.show()
+out_matriz = widgets.Output()
 
-widgets.interact(atualizar_matriz_gerencia, gerencia_sel=dropdown_ger_matriz)
+def atualizar_matriz_gerencia(change=None):
+    gerencia_sel = dropdown_ger_matriz.value
+    with out_matriz:
+        clear_output(wait=True)
+        fig, ax = plot_matriz_intensidade_unidades(df_series, gerencia_filtro=gerencia_sel)
+        plt.show()
+
+dropdown_ger_matriz.observe(atualizar_matriz_gerencia, names="value")
+display(dropdown_ger_matriz, out_matriz)
+atualizar_matriz_gerencia()
 """))
 
     # 9. ANALISE COMPARATIVA: PROTECAO INTEGRAL VS USO SUSTENTAVEL
@@ -300,21 +307,43 @@ plt.show()
 Selecione qualquer ano da série temporal (1985 a 2026) na lista suspensa abaixo para gerar e visualizar a prancha temática estática oficial do NGEO / IDEFLOR-Bio correspondente.
 """))
 
-    cells.append(make_cell("code", """# Seletor interativo em lista suspensa (Dropdown) para geracao da prancha cartografica por ano
+    cells.append(make_cell("code", """# Seletor e acionador da prancha cartografica tematica por ano
 anos_disponiveis = sorted(df_series["ano"].unique(), reverse=True)
 
 dropdown_ano = widgets.Dropdown(
     options=anos_disponiveis,
     value=int(df_series["ano"].max()),
     description="Ano:",
-    layout=widgets.Layout(width="350px")
+    layout=widgets.Layout(width="280px")
 )
 
-def renderizar_mapa_ano(ano_escolhido):
-    fig_ano, ax_ano = plot_static_map(df_series, ano=ano_escolhido, figsize=(16, 11))
-    plt.show()
+btn_gerar_mapa = widgets.Button(
+    description="Gerar Prancha do Ano",
+    button_style="primary",
+    icon="map",
+    layout=widgets.Layout(width="220px")
+)
 
-widgets.interact(renderizar_mapa_ano, ano_escolhido=dropdown_ano)
+out_mapa_ano = widgets.Output()
+
+def ao_clicar_gerar_mapa(b):
+    ano_escolhido = dropdown_ano.value
+    with out_mapa_ano:
+        clear_output(wait=True)
+        print(f"Gerando prancha cartografica tematica para o ano de {ano_escolhido}...")
+        fig_ano, ax_ano = plot_static_map(df_series, ano=ano_escolhido, figsize=(16, 11))
+        plt.show()
+
+btn_gerar_mapa.on_click(ao_clicar_gerar_mapa)
+
+controles_mapa = widgets.HBox(
+    [dropdown_ano, btn_gerar_mapa],
+    layout=widgets.Layout(align_items="center", gap="12px", margin="0 0 14px 0")
+)
+display(controles_mapa, out_mapa_ano)
+
+# Renderizacao inicial do ano mais recente
+ao_clicar_gerar_mapa(None)
 """))
 
     cells.append(make_cell("markdown", """### Mini Dashboard Analítico Interativo (MapLibre GL JS)
