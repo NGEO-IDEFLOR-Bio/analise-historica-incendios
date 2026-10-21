@@ -47,9 +47,16 @@ from pathlib import Path
 IN_COLAB = "google.colab" in sys.modules
 
 if IN_COLAB:
-    print("Ambiente Google Colab detectado. Clonando repositorio oficial...")
-    !git clone https://github.com/NGEO-IDEFLOR-Bio/analise-historica-incendios.git
-    %cd analise-historica-incendios
+    print("Ambiente Google Colab detectado. Sincronizando repositorio oficial...")
+    if Path("analise-historica-incendios").exists():
+        %cd analise-historica-incendios
+        !git pull origin main
+    elif Path(".git").exists() and Path("src").exists():
+        !git pull origin main
+    else:
+        !git clone https://github.com/NGEO-IDEFLOR-Bio/analise-historica-incendios.git
+        %cd analise-historica-incendios
+
     !pip install -q geopandas ipywidgets matplotlib seaborn
     ROOT_DIR = Path(".").resolve()
 else:
