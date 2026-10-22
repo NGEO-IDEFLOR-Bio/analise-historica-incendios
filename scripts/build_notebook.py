@@ -359,13 +359,6 @@ Painel analítico vetorial interativo desenvolvido com MapLibre GL JS e estiliza
 display(display_maplibre_in_notebook(df_series, height=720))
 """))
 
-    # 12. SINTESE CONCLUSIVA
-    cells.append(make_cell("markdown", """## 5. Sintese dos Resultados
-
-1. **Concentracao Espacial:** A pressao de fogo concentra-se predominantemente na Gerencia Regional do Xingu (GRX), impulsionada pela APA Triunfo do Xingu, e na Gerencia Regional do Araguaia (GRA).
-2. **Eficacia Diferenciada dos Decretos:** Unidades de Protecao Integral evidenciam queda acentuada na taxa de queima apos o decreto legal de criacao. Em contraste, Unidades de Uso Sustentavel de grande extensao territorial continuam sujeitas a dinamicidade de fronteira agricola e queimas pastoris recorrentes.
-3. **Eventos Climaticos Extremos:** Os anos de maior extensao territorial queimada coincidem com episodios severos de El Nino e anomalias termicas do Atlantico Tropical Norte.
-"""))
 
     nb = {
         "cells": cells,
