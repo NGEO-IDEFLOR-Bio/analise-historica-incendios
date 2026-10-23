@@ -533,43 +533,42 @@
           </div>
         </div>
 
-        <!-- Camada de Cicatrizes de Fogo (Tiles Dinamicos) -->
+        <!-- Camada de Cicatrizes de Fogo (MapBiomas Fogo 1985-2023 & MODIS 2024-2026) -->
         <div class="fire-scars-box">
           <div class="fire-scars-header">
             <label class="fire-scars-toggle-label">
               <input type="checkbox" id="check-fire-scars" />
               <span>🔥 Exibir Cicatrizes de Queimada</span>
             </label>
-            <span class="scars-badge">Tiles</span>
+            <span id="scar-res-badge" class="scars-badge">30m</span>
           </div>
           
           <div id="fire-scars-controls" style="display: none; margin-top: 8px;">
             <div class="scar-control-row">
-              <label for="select-scar-year">Ano do Monitoramento:</label>
+              <label for="select-scar-year">Ano da Cicatriz de Fogo:</label>
               <select id="select-scar-year" class="filter-select" style="padding: 3px 6px; font-size: 10.5px;">
-                <!-- Preenchido via JS com os anos disponiveis -->
+                <!-- Preenchido via JS com os 42 anos (2026 a 1985) -->
               </select>
             </div>
             
-            <div class="scar-control-row">
-              <label for="select-scar-source">Serviço de Detecção:</label>
-              <select id="select-scar-source" class="filter-select" style="padding: 3px 6px; font-size: 10.5px;">
-                <option value="inpe">INPE BDQueimadas (Monitoramento Nacional)</option>
-                <option value="deter">INPE TerraBrasilis (DETER Amazônia)</option>
-              </select>
+            <div class="scar-control-row" style="margin-top: 5px;">
+              <span style="font-size: 9px; color: #7C2D12;">Base Oficial Integrada:</span>
+              <div id="scar-source-text" style="font-size: 10px; font-weight: 700; color: #9A3412;">
+                MapBiomas Fogo (Landsat 30m)
+              </div>
             </div>
 
             <div class="scar-control-row">
               <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                <label for="slider-scar-opacity">Opacidade:</label>
+                <label for="slider-scar-opacity">Opacidade da Mancha:</label>
                 <span id="val-scar-opacity" style="font-size: 10px; font-weight: 700; color: #0284C7;">75%</span>
               </div>
               <input type="range" id="slider-scar-opacity" min="20" max="100" value="75" style="width: 100%; margin-top: 2px; cursor: pointer;" />
             </div>
 
             <div class="scar-legend-box">
-              <span style="display: inline-block; width: 10px; height: 10px; background: #DC2626; border-radius: 2px; margin-right: 5px;"></span>
-              <span>Manchas e Cicatrizes de Fogo Sobrepostas à UC</span>
+              <span style="display: inline-block; width: 11px; height: 11px; background: #EF4444; border-radius: 2px; margin-right: 6px; box-shadow: 0 0 4px rgba(239,68,68,0.5);"></span>
+              <span>Cicatrizes de Queimada Detectadas na UC</span>
             </div>
           </div>
         </div>
@@ -994,14 +993,16 @@
     }
 
     // ==========================================
-    // CAMADA DINAMICA DE CICATRIZES DE FOGO (TILES)
+    // CAMADA DINAMICA DE CICATRIZES DE FOGO (TILES MAPBIOMAS & MODIS)
     // ==========================================
+    const fireTilesByYear = {"1985": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/bd6b65f778c1af7abea00dbbc1281186-15d15425019f8a5d895270462f82cf75/tiles/{z}/{x}/{y}"}, "1986": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/9934cd63f3e2a865938a124c1b9a1214-3e29803dd05986e10d6fe2dd3235152d/tiles/{z}/{x}/{y}"}, "1987": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/aa05059f0464f1776f62df7f29fe131c-2b72705bb9fb8790f083dd9252d9ff21/tiles/{z}/{x}/{y}"}, "1988": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/171d22fc06c5f9023ae82bc2420cd319-cb6eb0bd2ffe9f75ab4076509d8ff7d5/tiles/{z}/{x}/{y}"}, "1989": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/26b468197c0ce0dd432c318afe927e6d-c5e5d86f33965007cb610fb8fb4e15b6/tiles/{z}/{x}/{y}"}, "1990": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/ccd018585c5755a5816ea02de5eec02a-b1b2192739ba53d2d6f3d97b8d3936c0/tiles/{z}/{x}/{y}"}, "1991": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/3c87ee8c9392786ced75db6c0702592e-841a82ff9b6562d620dc3e08638cb729/tiles/{z}/{x}/{y}"}, "1992": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/ac8438377fe2c9f690f267340a3968fb-17020d1761b83a525ba6a7c9cf59130b/tiles/{z}/{x}/{y}"}, "1993": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/da685d44cb07ba4548784d7b41daa469-3f15ecdf5d372486a4b3618f8992988e/tiles/{z}/{x}/{y}"}, "1994": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/27576b70624a36c59eb01edef60c434e-2b7b5d3d289f200e758d121de302b300/tiles/{z}/{x}/{y}"}, "1995": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/70a9f49138a64a8cfc022715228d941a-f25b0d60ab75a18e8a84e049bd2f7a01/tiles/{z}/{x}/{y}"}, "1996": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/3a0df37a7dc87695625321e65287188d-e06b6e162ac105635586633258910542/tiles/{z}/{x}/{y}"}, "1997": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/7781233ade3fdab0a3e0c068a1ebe80e-d397a04e72aba6a47cb606c225e33b80/tiles/{z}/{x}/{y}"}, "1998": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/e4cee81641695642e9a25fe691736cbd-daf0f9d98bb01669615fbf0ca0fd57a6/tiles/{z}/{x}/{y}"}, "1999": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/7d1ce3993cef934e2cef2137324a46bd-5cec47442fe633a9d551bade6c39c0b4/tiles/{z}/{x}/{y}"}, "2000": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/76f45dc15d1aa9718101a4e9c1fdfb8b-33d33e843a5e267c2046906c94da3b2d/tiles/{z}/{x}/{y}"}, "2001": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/5a480ab575fc642d6304de280d6333a2-d0e4cb0204f3e89c8a411df97a59d803/tiles/{z}/{x}/{y}"}, "2002": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/3ac0e1595904faf9f758ffded9206f20-651766eff3cdfaad50c0e3a10a0786e6/tiles/{z}/{x}/{y}"}, "2003": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/56a90192866a706171bf7c155902a0de-79a7a82d4b859db7075f3d0c852ff35c/tiles/{z}/{x}/{y}"}, "2004": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/2d7b729397f9b2ff1fc87dcb2f788438-b8984053b3e85f5cb8930885094fd845/tiles/{z}/{x}/{y}"}, "2005": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/2a92e46e9ab870ddb8f064deb71f3d3b-3ec6be0691745e21da3c86996a87ed33/tiles/{z}/{x}/{y}"}, "2006": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/81fae7627be57c09eec938942399fc7d-9f7bc66d7497affa8448b82cad2aca91/tiles/{z}/{x}/{y}"}, "2007": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/6bf81b78e3e513d58bc424aab618047f-f70912dc0a437bd8a1b93b34fe0ee18e/tiles/{z}/{x}/{y}"}, "2008": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/1ac8aa816c32b30548be3bc2dfd9a052-95591f0f524bec35dd739ecd2d52279f/tiles/{z}/{x}/{y}"}, "2009": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/1b88f52568802827dc3f2a1f0314e9ff-549659ef0000814c3d6f140e9d049bc1/tiles/{z}/{x}/{y}"}, "2010": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/14ce58294693c57563f359c379280e85-8ab0423949ed6c5ae8c25365aa32c298/tiles/{z}/{x}/{y}"}, "2011": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/55078b46db0a9285d10e430065bf1143-b2e494ae79121a07cf893f15c4a9dcee/tiles/{z}/{x}/{y}"}, "2012": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/869e6404d42db143e1d33b39195f916b-f1cd151786363d81e40c834c6e33b28c/tiles/{z}/{x}/{y}"}, "2013": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/22e1849a968c0f464c5f6d73de80b8de-b4525d61b2455ff995a31727ee599086/tiles/{z}/{x}/{y}"}, "2014": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/226bb398482d545e6a16f7be3becba5e-99499aa950afc034aa79e8861413c004/tiles/{z}/{x}/{y}"}, "2015": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/71e6837e32e31d1ab27e614591028639-5e2733ee9f56c327f57d641a4924db05/tiles/{z}/{x}/{y}"}, "2016": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/c2208984ee9776b62b44a1630294238a-659ad0197f910009f1f0da2a937b8b52/tiles/{z}/{x}/{y}"}, "2017": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/518d70529290f0b3a32d3db1b82e7d11-094b758e775a7631ec0148f66d88c09a/tiles/{z}/{x}/{y}"}, "2018": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/f10e6f1f8f24d25b7ab51dd523c47080-510c907ab300ca61f8cd334734a8c6a5/tiles/{z}/{x}/{y}"}, "2019": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/72956d51518c4d326d9e498a5d5d32cf-104b4cb35245b068b60c39950bdd044a/tiles/{z}/{x}/{y}"}, "2020": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/3e81ef107ed53eb7767bb0eceb9dad74-a66c8360e956663a4ba7d8ea766a70da/tiles/{z}/{x}/{y}"}, "2021": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/4f5a953a8cdc6bf7fd0e6387606f906e-b392d199dbc0ccc9deeeb02858a61cdb/tiles/{z}/{x}/{y}"}, "2022": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/122824912e77ec38b2c07583bbbeb208-8fb652265c21c2a3628b72cdbdffa8fa/tiles/{z}/{x}/{y}"}, "2023": {"source": "MapBiomas Fogo (Landsat 30m)", "resolution": "30m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/8ead2b82899dbb91125dc89596f62abb-eb53316a864332d21f4d9eab67cb4234/tiles/{z}/{x}/{y}"}, "2024": {"source": "MODIS MCD64A1 GEE (500m)", "resolution": "500m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/99ecf5a571c64fe7254bcc6a06b83ffd-c3a96137b41f33241ad69b62a0f69523/tiles/{z}/{x}/{y}"}, "2025": {"source": "MODIS MCD64A1 GEE (500m)", "resolution": "500m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/97fd9f642f939284e073415516a85deb-dbb69b614850fe1be189c2d09039f5d7/tiles/{z}/{x}/{y}"}, "2026": {"source": "MODIS MCD64A1 GEE (500m)", "resolution": "500m", "url": "https://earthengine.googleapis.com/v1/projects/sentinel-landsat-download/maps/1b1db5b347d11ced18bf99684d15c694-8ecce8f5fbd50d017a87c0ec9ca34270/tiles/{z}/{x}/{y}"}};
     let fireScarsLayer = null;
 
     const scarYearSelect = document.getElementById('select-scar-year');
     if (scarYearSelect) {
-      const sortedYearsDesc = [...geralAnos].sort((a, b) => b - a);
-      sortedYearsDesc.forEach(yr => {
+      const availableYears = Object.keys(fireTilesByYear).map(y => parseInt(y)).sort((a, b) => b - a);
+      const yearsToList = availableYears.length > 0 ? availableYears : [...geralAnos].sort((a, b) => b - a);
+      yearsToList.forEach(yr => {
         const opt = document.createElement('option');
         opt.value = yr;
         opt.textContent = 'Ano ' + yr;
@@ -1029,32 +1030,25 @@
         return;
       }
 
-      // Ajusta opacidade do poligono para permitir ver o satelite e as manchas de queima
+      // Ajusta opacidade do poligono da UC para destacar as cicatrizes e o satelite
       if (selectedLayer) {
-        selectedLayer.setStyle({ fillOpacity: 0.22 });
+        selectedLayer.setStyle({ fillOpacity: 0.20 });
       }
 
       const year = document.getElementById('select-scar-year').value;
-      const source = document.getElementById('select-scar-source').value;
       const opacity = parseFloat(document.getElementById('slider-scar-opacity').value) / 100;
 
-      if (source === 'inpe') {
-        fireScarsLayer = L.tileLayer.wms('https://queimadas.dgi.inpe.br/geoserver/wms', {
-          layers: 'bdqueimadas:GOES16-Fire_br_ultima_passagem',
-          format: 'image/png',
-          transparent: true,
+      const tileInfo = fireTilesByYear[year];
+      if (tileInfo && tileInfo.url) {
+        const sourceLabel = document.getElementById('scar-source-text');
+        const badgeLabel = document.getElementById('scar-res-badge');
+        if (sourceLabel) sourceLabel.textContent = tileInfo.source;
+        if (badgeLabel) badgeLabel.textContent = tileInfo.resolution;
+
+        fireScarsLayer = L.tileLayer(tileInfo.url, {
           opacity: opacity,
           maxZoom: 16,
-          attribution: 'INPE BDQueimadas'
-        }).addTo(map);
-      } else if (source === 'deter') {
-        fireScarsLayer = L.tileLayer.wms('https://terrabrasilis.dpi.inpe.br/geoserver/deter-amz/wms', {
-          layers: 'deter_amz',
-          format: 'image/png',
-          transparent: true,
-          opacity: opacity,
-          maxZoom: 16,
-          attribution: 'INPE TerraBrasilis DETER'
+          attribution: tileInfo.source
         }).addTo(map);
       }
 
@@ -1066,7 +1060,6 @@
     if (document.getElementById('check-fire-scars')) {
       document.getElementById('check-fire-scars').addEventListener('change', updateFireScarsLayer);
       document.getElementById('select-scar-year').addEventListener('change', updateFireScarsLayer);
-      document.getElementById('select-scar-source').addEventListener('change', updateFireScarsLayer);
       document.getElementById('slider-scar-opacity').addEventListener('input', function() {
         const opVal = this.value;
         document.getElementById('val-scar-opacity').textContent = opVal + '%';

@@ -21,6 +21,7 @@ from src.config import (
     GEOJSON_UCS,
     GEOJSON_PARA,
     CSV_METADATA_UCS,
+    DATA_PROCESSED,
     DATA_OUTPUT
 )
 
@@ -152,6 +153,14 @@ def create_interactive_leaflet_dashboard(
     series_json_str = json.dumps(series_by_uc, ensure_ascii=False)
     geral_anos_str = json.dumps(geral_anos)
     geral_taxas_str = json.dumps(geral_taxas)
+
+    # Carregar catalogo de tiles oficiais de cicatrizes de fogo (MapBiomas 1985-2023 e MODIS 2024-2026)
+    fire_tiles_file = DATA_PROCESSED / "fire_tile_urls.json"
+    fire_tiles_data = {}
+    if fire_tiles_file.exists():
+        with open(fire_tiles_file, "r", encoding="utf-8") as f:
+            fire_tiles_data = json.load(f)
+    fire_tiles_json_str = json.dumps(fire_tiles_data, ensure_ascii=False)
 
     html_template = f"""<!DOCTYPE html>
 <html lang="pt-BR">
@@ -688,43 +697,42 @@ def create_interactive_leaflet_dashboard(
           </div>
         </div>
 
-        <!-- Camada de Cicatrizes de Fogo (Tiles Dinamicos) -->
+        <!-- Camada de Cicatrizes de Fogo (MapBiomas Fogo 1985-2023 & MODIS 2024-2026) -->
         <div class="fire-scars-box">
           <div class="fire-scars-header">
             <label class="fire-scars-toggle-label">
               <input type="checkbox" id="check-fire-scars" />
               <span>🔥 Exibir Cicatrizes de Queimada</span>
             </label>
-            <span class="scars-badge">Tiles</span>
+            <span id="scar-res-badge" class="scars-badge">30m</span>
           </div>
           
           <div id="fire-scars-controls" style="display: none; margin-top: 8px;">
             <div class="scar-control-row">
-              <label for="select-scar-year">Ano do Monitoramento:</label>
+              <label for="select-scar-year">Ano da Cicatriz de Fogo:</label>
               <select id="select-scar-year" class="filter-select" style="padding: 3px 6px; font-size: 10.5px;">
-                <!-- Preenchido via JS com os anos disponiveis -->
+                <!-- Preenchido via JS com os 42 anos (2026 a 1985) -->
               </select>
             </div>
             
-            <div class="scar-control-row">
-              <label for="select-scar-source">Serviço de Detecção:</label>
-              <select id="select-scar-source" class="filter-select" style="padding: 3px 6px; font-size: 10.5px;">
-                <option value="inpe">INPE BDQueimadas (Monitoramento Nacional)</option>
-                <option value="deter">INPE TerraBrasilis (DETER Amazônia)</option>
-              </select>
+            <div class="scar-control-row" style="margin-top: 5px;">
+              <span style="font-size: 9px; color: #7C2D12;">Base Oficial Integrada:</span>
+              <div id="scar-source-text" style="font-size: 10px; font-weight: 700; color: #9A3412;">
+                MapBiomas Fogo (Landsat 30m)
+              </div>
             </div>
 
             <div class="scar-control-row">
               <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                <label for="slider-scar-opacity">Opacidade:</label>
+                <label for="slider-scar-opacity">Opacidade da Mancha:</label>
                 <span id="val-scar-opacity" style="font-size: 10px; font-weight: 700; color: #0284C7;">75%</span>
               </div>
               <input type="range" id="slider-scar-opacity" min="20" max="100" value="75" style="width: 100%; margin-top: 2px; cursor: pointer;" />
             </div>
 
             <div class="scar-legend-box">
-              <span style="display: inline-block; width: 10px; height: 10px; background: #DC2626; border-radius: 2px; margin-right: 5px;"></span>
-              <span>Manchas e Cicatrizes de Fogo Sobrepostas à UC</span>
+              <span style="display: inline-block; width: 11px; height: 11px; background: #EF4444; border-radius: 2px; margin-right: 6px; box-shadow: 0 0 4px rgba(239,68,68,0.5);"></span>
+              <span>Cicatrizes de Queimada Detectadas na UC</span>
             </div>
           </div>
         </div>
@@ -1149,14 +1157,16 @@ def create_interactive_leaflet_dashboard(
     }}
 
     // ==========================================
-    // CAMADA DINAMICA DE CICATRIZES DE FOGO (TILES)
+    // CAMADA DINAMICA DE CICATRIZES DE FOGO (TILES MAPBIOMAS & MODIS)
     // ==========================================
+    const fireTilesByYear = {fire_tiles_json_str};
     let fireScarsLayer = null;
 
     const scarYearSelect = document.getElementById('select-scar-year');
     if (scarYearSelect) {{
-      const sortedYearsDesc = [...geralAnos].sort((a, b) => b - a);
-      sortedYearsDesc.forEach(yr => {{
+      const availableYears = Object.keys(fireTilesByYear).map(y => parseInt(y)).sort((a, b) => b - a);
+      const yearsToList = availableYears.length > 0 ? availableYears : [...geralAnos].sort((a, b) => b - a);
+      yearsToList.forEach(yr => {{
         const opt = document.createElement('option');
         opt.value = yr;
         opt.textContent = 'Ano ' + yr;
@@ -1184,32 +1194,25 @@ def create_interactive_leaflet_dashboard(
         return;
       }}
 
-      // Ajusta opacidade do poligono para permitir ver o satelite e as manchas de queima
+      // Ajusta opacidade do poligono da UC para destacar as cicatrizes e o satelite
       if (selectedLayer) {{
-        selectedLayer.setStyle({{ fillOpacity: 0.22 }});
+        selectedLayer.setStyle({{ fillOpacity: 0.20 }});
       }}
 
       const year = document.getElementById('select-scar-year').value;
-      const source = document.getElementById('select-scar-source').value;
       const opacity = parseFloat(document.getElementById('slider-scar-opacity').value) / 100;
 
-      if (source === 'inpe') {{
-        fireScarsLayer = L.tileLayer.wms('https://queimadas.dgi.inpe.br/geoserver/wms', {{
-          layers: 'bdqueimadas:GOES16-Fire_br_ultima_passagem',
-          format: 'image/png',
-          transparent: true,
+      const tileInfo = fireTilesByYear[year];
+      if (tileInfo && tileInfo.url) {{
+        const sourceLabel = document.getElementById('scar-source-text');
+        const badgeLabel = document.getElementById('scar-res-badge');
+        if (sourceLabel) sourceLabel.textContent = tileInfo.source;
+        if (badgeLabel) badgeLabel.textContent = tileInfo.resolution;
+
+        fireScarsLayer = L.tileLayer(tileInfo.url, {{
           opacity: opacity,
           maxZoom: 16,
-          attribution: 'INPE BDQueimadas'
-        }}).addTo(map);
-      }} else if (source === 'deter') {{
-        fireScarsLayer = L.tileLayer.wms('https://terrabrasilis.dpi.inpe.br/geoserver/deter-amz/wms', {{
-          layers: 'deter_amz',
-          format: 'image/png',
-          transparent: true,
-          opacity: opacity,
-          maxZoom: 16,
-          attribution: 'INPE TerraBrasilis DETER'
+          attribution: tileInfo.source
         }}).addTo(map);
       }}
 
@@ -1221,7 +1224,6 @@ def create_interactive_leaflet_dashboard(
     if (document.getElementById('check-fire-scars')) {{
       document.getElementById('check-fire-scars').addEventListener('change', updateFireScarsLayer);
       document.getElementById('select-scar-year').addEventListener('change', updateFireScarsLayer);
-      document.getElementById('select-scar-source').addEventListener('change', updateFireScarsLayer);
       document.getElementById('slider-scar-opacity').addEventListener('input', function() {{
         const opVal = this.value;
         document.getElementById('val-scar-opacity').textContent = opVal + '%';
