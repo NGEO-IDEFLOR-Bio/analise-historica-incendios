@@ -389,6 +389,67 @@ def create_interactive_leaflet_dashboard(
       width: 100%;
     }}
 
+    /* Modulo de Cicatrizes de Queimada (Tiles Dinamicos) */
+    .fire-scars-box {{
+      margin-top: 10px;
+      padding: 9px 11px;
+      background: #FFF7ED;
+      border: 1px solid #FFEDD5;
+      border-radius: 6px;
+      box-shadow: 0 1px 4px rgba(234, 88, 12, 0.08);
+      transition: all 0.2s ease;
+    }}
+    .fire-scars-header {{
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }}
+    .fire-scars-toggle-label {{
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #9A3412;
+      cursor: pointer;
+      user-select: none;
+    }}
+    .fire-scars-toggle-label input[type="checkbox"] {{
+      accent-color: #EA580C;
+      cursor: pointer;
+      width: 14px;
+      height: 14px;
+    }}
+    .scars-badge {{
+      font-size: 8.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      background: #FDBA74;
+      color: #7C2D12;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.3px;
+    }}
+    .scar-control-row {{
+      margin-top: 7px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      font-size: 9.5px;
+      font-weight: 600;
+      color: #7C2D12;
+    }}
+    .scar-legend-box {{
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px dashed #FDBA74;
+      display: flex;
+      align-items: center;
+      font-size: 9px;
+      font-weight: 600;
+      color: #C2410C;
+    }}
+
     /* Orientacao Superior Centralizada */
     .top-hint {{
       position: absolute;
@@ -626,6 +687,47 @@ def create_interactive_leaflet_dashboard(
             <div style="display: flex; align-items: center; gap: 3px;"><span style="width: 7px; height: 7px; background: #DC2626; border-radius: 1px;"></span>Após Decreto</div>
           </div>
         </div>
+
+        <!-- Camada de Cicatrizes de Fogo (Tiles Dinamicos) -->
+        <div class="fire-scars-box">
+          <div class="fire-scars-header">
+            <label class="fire-scars-toggle-label">
+              <input type="checkbox" id="check-fire-scars" />
+              <span>🔥 Exibir Cicatrizes de Queimada</span>
+            </label>
+            <span class="scars-badge">Tiles</span>
+          </div>
+          
+          <div id="fire-scars-controls" style="display: none; margin-top: 8px;">
+            <div class="scar-control-row">
+              <label for="select-scar-year">Ano do Monitoramento:</label>
+              <select id="select-scar-year" class="filter-select" style="padding: 3px 6px; font-size: 10.5px;">
+                <!-- Preenchido via JS com os anos disponiveis -->
+              </select>
+            </div>
+            
+            <div class="scar-control-row">
+              <label for="select-scar-source">Serviço de Detecção:</label>
+              <select id="select-scar-source" class="filter-select" style="padding: 3px 6px; font-size: 10.5px;">
+                <option value="inpe">INPE BDQueimadas (Monitoramento Nacional)</option>
+                <option value="deter">INPE TerraBrasilis (DETER Amazônia)</option>
+              </select>
+            </div>
+
+            <div class="scar-control-row">
+              <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <label for="slider-scar-opacity">Opacidade:</label>
+                <span id="val-scar-opacity" style="font-size: 10px; font-weight: 700; color: #0284C7;">75%</span>
+              </div>
+              <input type="range" id="slider-scar-opacity" min="20" max="100" value="75" style="width: 100%; margin-top: 2px; cursor: pointer;" />
+            </div>
+
+            <div class="scar-legend-box">
+              <span style="display: inline-block; width: 10px; height: 10px; background: #DC2626; border-radius: 2px; margin-right: 5px;"></span>
+              <span>Manchas e Cicatrizes de Fogo Sobrepostas à UC</span>
+            </div>
+          </div>
+        </div>
       </div>
       
       <div id="uc-empty-state" style="padding: 24px 10px; text-align: center; color: #64748B; font-size: 11px; line-height: 1.4;">
@@ -839,6 +941,10 @@ def create_interactive_leaflet_dashboard(
         viewRegional.style.display = 'block';
         viewUnidade.style.display = 'none';
         clearSelectionHighlight();
+        if (fireScarsLayer) {{
+          map.removeLayer(fireScarsLayer);
+          fireScarsLayer = null;
+        }}
         updateFilters();
       }} else {{
         tabUnidade.classList.add('active');
@@ -1018,6 +1124,10 @@ def create_interactive_leaflet_dashboard(
 
       renderUCChart(s, s.ano_criacao);
 
+      if (document.getElementById('check-fire-scars') && document.getElementById('check-fire-scars').checked) {{
+        updateFireScarsLayer();
+      }}
+
       // Focar na geometria com zoom suave
       map.fitBounds(layer.getBounds(), {{
         paddingTopLeft: [340, 50],
@@ -1031,10 +1141,94 @@ def create_interactive_leaflet_dashboard(
       if (selectedLayer) {{
         selectedLayer.setStyle({{
           color: '#000000',
-          weight: 1.0
+          weight: 1.0,
+          fillOpacity: 0.88
         }});
         selectedLayer = null;
       }}
+    }}
+
+    // ==========================================
+    // CAMADA DINAMICA DE CICATRIZES DE FOGO (TILES)
+    // ==========================================
+    let fireScarsLayer = null;
+
+    const scarYearSelect = document.getElementById('select-scar-year');
+    if (scarYearSelect) {{
+      const sortedYearsDesc = [...geralAnos].sort((a, b) => b - a);
+      sortedYearsDesc.forEach(yr => {{
+        const opt = document.createElement('option');
+        opt.value = yr;
+        opt.textContent = 'Ano ' + yr;
+        scarYearSelect.appendChild(opt);
+      }});
+    }}
+
+    function updateFireScarsLayer() {{
+      const checkEl = document.getElementById('check-fire-scars');
+      const controlsEl = document.getElementById('fire-scars-controls');
+      if (!checkEl || !controlsEl) return;
+
+      const isEnabled = checkEl.checked;
+      controlsEl.style.display = isEnabled ? 'block' : 'none';
+
+      if (fireScarsLayer) {{
+        map.removeLayer(fireScarsLayer);
+        fireScarsLayer = null;
+      }}
+
+      if (!isEnabled) {{
+        if (selectedLayer) {{
+          selectedLayer.setStyle({{ fillOpacity: 0.88 }});
+        }}
+        return;
+      }}
+
+      // Ajusta opacidade do poligono para permitir ver o satelite e as manchas de queima
+      if (selectedLayer) {{
+        selectedLayer.setStyle({{ fillOpacity: 0.22 }});
+      }}
+
+      const year = document.getElementById('select-scar-year').value;
+      const source = document.getElementById('select-scar-source').value;
+      const opacity = parseFloat(document.getElementById('slider-scar-opacity').value) / 100;
+
+      if (source === 'inpe') {{
+        fireScarsLayer = L.tileLayer.wms('https://queimadas.dgi.inpe.br/geoserver/wms', {{
+          layers: 'bdqueimadas:GOES16-Fire_br_ultima_passagem',
+          format: 'image/png',
+          transparent: true,
+          opacity: opacity,
+          maxZoom: 16,
+          attribution: 'INPE BDQueimadas'
+        }}).addTo(map);
+      }} else if (source === 'deter') {{
+        fireScarsLayer = L.tileLayer.wms('https://terrabrasilis.dpi.inpe.br/geoserver/deter-amz/wms', {{
+          layers: 'deter_amz',
+          format: 'image/png',
+          transparent: true,
+          opacity: opacity,
+          maxZoom: 16,
+          attribution: 'INPE TerraBrasilis DETER'
+        }}).addTo(map);
+      }}
+
+      if (selectedLayer && !L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {{
+        selectedLayer.bringToFront();
+      }}
+    }}
+
+    if (document.getElementById('check-fire-scars')) {{
+      document.getElementById('check-fire-scars').addEventListener('change', updateFireScarsLayer);
+      document.getElementById('select-scar-year').addEventListener('change', updateFireScarsLayer);
+      document.getElementById('select-scar-source').addEventListener('change', updateFireScarsLayer);
+      document.getElementById('slider-scar-opacity').addEventListener('input', function() {{
+        const opVal = this.value;
+        document.getElementById('val-scar-opacity').textContent = opVal + '%';
+        if (fireScarsLayer) {{
+          fireScarsLayer.setOpacity(parseFloat(opVal) / 100);
+        }}
+      }});
     }}
 
     function renderUCChart(series, anoCriacao) {{
