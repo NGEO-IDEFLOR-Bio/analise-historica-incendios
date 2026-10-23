@@ -125,7 +125,7 @@ from src.viz.charts import (
     plot_uc_before_after,
     plot_matriz_intensidade_unidades
 )
-from src.viz.maps import plot_static_map, create_interactive_maplibre_map, display_maplibre_in_notebook
+from src.viz.maps import plot_static_map, create_interactive_maplibre_map, display_maplibre_in_notebook, display_figure_responsive
 
 apply_ggplot_theme()
 print("Modulos carregados e padronizacao grafica ativada.")
@@ -200,7 +200,7 @@ plt.show()
 O seletor abaixo permite inspecionar a matriz temporal das Unidades de Conservacao de forma individualizada para cada Gerencia Regional.
 """))
 
-    cells.append(make_cell("code", """# Seletor interativo da matriz por Gerencia Regional com saida estavel
+    cells.append(make_cell("code", """# Seletor interativo da matriz por Gerencia Regional com saida estavel e responsiva
 gerencias_opcoes = ["TODAS"] + sorted([g for g in df_series["gerencia"].dropna().unique() if g])
 
 dropdown_ger_matriz = widgets.Dropdown(
@@ -210,14 +210,14 @@ dropdown_ger_matriz = widgets.Dropdown(
     layout=widgets.Layout(width="550px")
 )
 
-out_matriz = widgets.Output()
+out_matriz = widgets.Output(layout=widgets.Layout(width="100%", overflow="hidden"))
 
 def atualizar_matriz_gerencia(change=None):
     gerencia_sel = dropdown_ger_matriz.value
     with out_matriz:
         clear_output(wait=True)
         fig, ax = plot_matriz_intensidade_unidades(df_series, gerencia_filtro=gerencia_sel)
-        plt.show()
+        display_figure_responsive(fig, max_width_px=1150)
 
 dropdown_ger_matriz.observe(atualizar_matriz_gerencia, names="value")
 display(dropdown_ger_matriz, out_matriz)
@@ -260,7 +260,7 @@ plt.show()
 Verificacao do comportamento da taxa de queima territorial nos periodos anterior e posterior ao decreto de criacao de cada unidade. O seletor abaixo permite inspecionar cada uma das 29 UCs individualmente.
 """))
 
-    cells.append(make_cell("code", """# Seletor interativo para inspecao de cada UC
+    cells.append(make_cell("code", """# Seletor interativo para inspecao de cada UC com saida estavel
 ucs_validas = sorted(df_series["uc_id"].unique())
 nomes_map = dict(zip(df_meta["id"], df_meta["nome"]))
 
@@ -271,28 +271,35 @@ dropdown_uc = widgets.Dropdown(
     layout=widgets.Layout(width="500px")
 )
 
-def atualizar_grafico_uc(uc_id):
-    fig, ax = plot_uc_before_after(df_series, uc_id=uc_id, figsize=(12, 4.5))
-    plt.show()
-    
-    # Exibir metricas sinteticas
-    sub = df_series[df_series["uc_id"] == uc_id]
-    nome = sub["uc_nome"].iloc[0]
-    ano_cria = sub["ano_criacao"].iloc[0]
-    pre = sub[sub["status_marco"] == "Pré-Criação"]["taxa_queimada_pct"].mean()
-    pos = sub[sub["status_marco"] == "Pós-Criação"]["taxa_queimada_pct"].mean()
-    
-    print(f"Unidade: {nome} (Decreto: {ano_cria if pd.notna(ano_cria) else 'Nao informado'})")
-    if pd.notna(pre) and not np.isnan(pre):
-        print(f"Taxa Media Pre-Criacao: {pre:.2f}% ao ano | Taxa Media Pos-Criacao: {pos:.2f}% ao ano")
-        dif = pos - pre
-        sinal = "+" if dif > 0 else ""
-        print(f"Variacao Liquida Pos-Decreto: {sinal}{dif:.2f} pontos percentuais")
-    else:
-        print(f"Taxa Media Pos-Criacao: {pos:.2f}% ao ano (sem serie pre-criacao anterior a 1985)")
-    print("=" * 70)
+out_uc = widgets.Output(layout=widgets.Layout(width="100%", overflow="hidden"))
 
-widgets.interact(atualizar_grafico_uc, uc_id=dropdown_uc)
+def atualizar_grafico_uc(change=None):
+    uc_id = dropdown_uc.value
+    with out_uc:
+        clear_output(wait=True)
+        fig, ax = plot_uc_before_after(df_series, uc_id=uc_id, figsize=(12, 4.5))
+        display_figure_responsive(fig, max_width_px=1000)
+        
+        # Exibir metricas sinteticas
+        sub = df_series[df_series["uc_id"] == uc_id]
+        nome = sub["uc_nome"].iloc[0]
+        ano_cria = sub["ano_criacao"].iloc[0]
+        pre = sub[sub["status_marco"] == "Pré-Criação"]["taxa_queimada_pct"].mean()
+        pos = sub[sub["status_marco"] == "Pós-Criação"]["taxa_queimada_pct"].mean()
+        
+        print(f"Unidade: {nome} (Decreto: {ano_cria if pd.notna(ano_cria) else 'Nao informado'})")
+        if pd.notna(pre) and not np.isnan(pre):
+            print(f"Taxa Media Pre-Criacao: {pre:.2f}% ao ano | Taxa Media Pos-Criacao: {pos:.2f}% ao ano")
+            dif = pos - pre
+            sinal = "+" if dif > 0 else ""
+            print(f"Variacao Liquida Pos-Decreto: {sinal}{dif:.2f} pontos percentuais")
+        else:
+            print(f"Taxa Media Pos-Criacao: {pos:.2f}% ao ano (sem serie pre-criacao anterior a 1985)")
+        print("=" * 70)
+
+dropdown_uc.observe(atualizar_grafico_uc, names="value")
+display(dropdown_uc, out_uc)
+atualizar_grafico_uc()
 """))
 
     # 11. MAPEAMENTO CARTOGRAFICO
@@ -303,7 +310,7 @@ Espacializacao geografica das 29 Unidades de Conservacao classificadas pela taxa
 
     cells.append(make_cell("code", """# Prancha cartografica oficial da media historica (1985 a 2026)
 fig, ax = plot_static_map(df_series, figsize=(16, 11))
-plt.show()
+display_figure_responsive(fig, max_width_px=1100)
 """))
 
     cells.append(make_cell("markdown", """### Prancha Cartográfica Temática Interativa por Ano Específico
@@ -311,7 +318,7 @@ plt.show()
 Selecione qualquer ano da série temporal (1985 a 2026) na lista suspensa abaixo para gerar e visualizar a prancha temática estática oficial do NGEO / IDEFLOR-Bio correspondente.
 """))
 
-    cells.append(make_cell("code", """# Seletor e acionador da prancha cartografica tematica por ano
+    cells.append(make_cell("code", """# Seletor e acionador da prancha cartografica tematica por ano com saida estavel
 anos_disponiveis = sorted(df_series["ano"].unique(), reverse=True)
 
 dropdown_ano = widgets.Dropdown(
@@ -328,7 +335,7 @@ btn_gerar_mapa = widgets.Button(
     layout=widgets.Layout(width="220px")
 )
 
-out_mapa_ano = widgets.Output()
+out_mapa_ano = widgets.Output(layout=widgets.Layout(width="100%", overflow="hidden"))
 
 def ao_clicar_gerar_mapa(b):
     ano_escolhido = dropdown_ano.value
@@ -336,7 +343,7 @@ def ao_clicar_gerar_mapa(b):
         clear_output(wait=True)
         print(f"Gerando prancha cartografica tematica para o ano de {ano_escolhido}...")
         fig_ano, ax_ano = plot_static_map(df_series, ano=ano_escolhido, figsize=(16, 11))
-        plt.show()
+        display_figure_responsive(fig_ano, max_width_px=1100)
 
 btn_gerar_mapa.on_click(ao_clicar_gerar_mapa)
 

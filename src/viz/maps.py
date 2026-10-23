@@ -334,6 +334,34 @@ def plot_static_map(
 
     return fig, ax_main
 
+def display_figure_responsive(fig, max_width_px: int = 1100, border: bool = True):
+    """
+    Exibe uma figura matplotlib de forma estavel e 100% responsiva no Google Colab
+    e Jupyter Notebook, eliminando completamente trepidacao, oscilacao de scrollbars
+    e conflitos de redimensionamento de iframe.
+    """
+    import io
+    import base64
+    from IPython.display import HTML, display
+    import matplotlib.pyplot as plt
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=140, bbox_inches="tight", facecolor=fig.get_facecolor(), edgecolor="none")
+    try:
+        plt.close(fig)
+    except Exception:
+        pass
+    buf.seek(0)
+    data = base64.b64encode(buf.read()).decode("utf-8")
+
+    border_style = "border: 1px solid #CBD5E1; border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,0.08);" if border else ""
+    html = f'''
+    <div style="width: 100%; max-width: {max_width_px}px; margin: 8px auto; overflow: hidden; {border_style} background: #FFFFFF;">
+      <img src="data:image/png;base64,{data}" alt="Visualizacao Grafica" style="width: 100%; height: auto; display: block;" />
+    </div>
+    '''
+    display(HTML(html))
+
 from src.viz.leaflet_dashboard import create_interactive_leaflet_dashboard
 
 def create_interactive_maplibre_map(df_series: pd.DataFrame, save_html: bool = True, output_path: Optional[Path] = None) -> str:
