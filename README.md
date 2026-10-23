@@ -61,6 +61,80 @@ analise-historica-incendios/
 
 ---
 
+## Arquitetura do Sistema e Divisao de Responsabilidades
+
+O projeto adota uma arquitetura em camadas desacopladas, separando a extracao pesada de dados, o processamento de regras cartograficas e a camada analitica interativa:
+
+```mermaid
+flowchart TD
+    subgraph S1["1. Provedores e Sensores Espaciais"]
+        GEE["Google Earth Engine API"]
+        MB["MapBiomas Fogo (Landsat 30m)"]
+        MODIS["MODIS MCD64A1 (500m)"]
+        GEE --> MB
+        GEE --> MODIS
+    end
+
+    subgraph S2["2. Engenharia e Extracao (Backend)"]
+        EXT_MB["src/extractors/mapbiomas_fogo.py"]
+        EXT_MO["src/extractors/modis_burned_area.py"]
+        MB --> EXT_MB
+        MODIS --> EXT_MO
+    end
+
+    subgraph S3["3. Bases de Dados Consolidadas"]
+        CSV["data/processed/mapbiomas_fogo_series_1985_2026.csv"]
+        TILES["data/processed/fire_tile_urls.json"]
+        EXT_MB --> CSV
+        EXT_MO --> CSV
+        EXT_MO --> TILES
+    end
+
+    subgraph S4["4. Motor de Visualizacao e Regras"]
+        CHARTS["src/viz/charts.py (Estatisticas e Matrizes)"]
+        MAPS["src/viz/maps.py (Pranchas Cartograficas)"]
+        LEAFLET["src/viz/leaflet_dashboard.py (Mini Dashboard)"]
+        CSV --> CHARTS
+        CSV --> MAPS
+        CSV --> LEAFLET
+        TILES --> LEAFLET
+    end
+
+    subgraph S5["5. Frontend Analitico e Apresentacao"]
+        NOTEBOOK["notebooks/01_analise_historica_incendios.ipynb"]
+        CHARTS --> NOTEBOOK
+        MAPS --> NOTEBOOK
+        LEAFLET --> NOTEBOOK
+    end
+
+    classDef providers fill:#EFF6FF,stroke:#3B82F6,stroke-width:1.5px,color:#1E3A8A;
+    classDef extractors fill:#FEF3C7,stroke:#D97706,stroke-width:1.5px,color:#78350F;
+    classDef data fill:#ECFDF5,stroke:#10B981,stroke-width:1.5px,color:#064E3B;
+    classDef viz fill:#F5F3FF,stroke:#8B5CF6,stroke-width:1.5px,color:#4C1D95;
+    classDef frontend fill:#FFF1F2,stroke:#F43F5E,stroke-width:2px,color:#881337;
+
+    class GEE,MB,MODIS providers;
+    class EXT_MB,EXT_MO extractors;
+    class CSV,TILES data;
+    class CHARTS,MAPS,LEAFLET viz;
+    class NOTEBOOK frontend;
+```
+
+### Divisao das Tarefas no Fluxo de Trabalho
+
+1. **Backend de Dados (`src/extractors/`):**
+   * Responsavel pela conexao com o Google Earth Engine, mascaramento espacial dos 29 poligonos cadastrais e agregacao das series historicas (1985 a 2026).
+   * Roda sob demanda e gera as tabelas finais, dispensando o usuario final de reprocessar milhoes de hectares no Google Colab.
+2. **Bases Consolidadas (`data/processed/`):**
+   * Persistem os dados compilados (`mapbiomas_fogo_series_1985_2026.csv` com 1.218 registros anuais e `fire_tile_urls.json` com os tiles dos 42 anos), viabilizando carregamento imediato em qualquer maquina.
+3. **Motor de Regras e Visualizacao (`src/viz/`):**
+   * Centraliza a complexidade grafica: estilizacao tipografica, definicao de paletas institucionais, montagem milimetrica das pranchas estaticas com 4 eixos e codigo web (HTML/JS) do Leaflet Dashboard.
+   * Evita poluir o notebook com centenas de linhas de configuracao grafica.
+4. **Frontend Analitico (`notebooks/01_analise_historica_incendios.ipynb`):**
+   * Camada interativa limpa para o analista ambiental. As celulas realizam chamadas diretas as funcoes do motor, controlam filtros dinamicos (`widgets.Dropdown`), renderizam saidas responsivas sem trepidacao de tela e oferecem o ambiente ideal para exploracao e diagnostico territorial.
+
+---
+
 ## Sintese Territorial das Gerencias Regionais
 
 O banco de dados geoespacial integra 29 poligonos oficiais distribuidos em 9 Gerencias Regionais:
