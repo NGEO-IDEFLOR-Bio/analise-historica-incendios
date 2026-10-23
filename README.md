@@ -23,7 +23,7 @@ O escopo do projeto contempla a avaliacao da serie temporal integrada de 1985 a 
    * Analise empirica do tipo antes e depois da data oficial do decreto de criacao territorial de cada unidade, verificando se a oficializacao legal resultou em contencao efetiva da taxa de queima territorial.
 5. **Difusao Cartografica e Visual:**
    * Pranchas tematicas estaticas oficiais prontas para publicacao tecnica com seletor de ano sob demanda.
-   * Mini Dashboard analitico interativo sem dependencia de chaves pagas, com visualizacao regional, modo de analise por unidade e abertura direta em nova aba.
+   * Mini Dashboard analitico interativo sem dependencia de chaves pagas, com visualizacao regional, modo de analise por unidade, sobreposicao de cicatrizes reais em tiles e abertura direta em nova aba.
 
 ---
 
@@ -38,9 +38,9 @@ analise-historica-incendios/
 ├── docs/
 │   └── catalogo_ucs.md       # Catalogo cadastral das 29 UCs, gerencias, categorias e datas de criacao
 ├── notebooks/
-│   └── 01_analise_historica_incendios.ipynb # Caderno interativo oficial (compativel com Colab e Jupyter)
+│   └── 01_analise_historica_incendios.ipynb # Notebook oficial interativo (executavel no Google Colab e Jupyter)
 ├── scripts/
-│   ├── build_notebook.py     # Script gerador e sincronizador do caderno interativo executivo
+│   ├── build_notebook.py     # Script gerador e sincronizador do notebook executivo
 │   ├── generate_interactive_map.py # Gerador do painel web Leaflet institucional
 │   └── setup_and_validate.py # Validacao topologica das geometrias e metadados cadastrais
 ├── src/
@@ -82,14 +82,31 @@ O banco de dados geoespacial integra 29 poligonos oficiais distribuidos em 9 Ger
 
 ## Metricas e Formulacao de Normalizacao
 
-Para assegurar comparabilidade tecnica entre unidades de conservacao de portes heterogeneos, aplicam-se as seguintes formulas:
+Para assegurar comparabilidade tecnica entre unidades de conservacao de portes heterogeneos, aplicam-se as seguintes formulacoes matematicas:
 
-1. **Taxa Percentual Anual de Queima:**
-   $$\text{Taxa Anual (\%)} = \left(\frac{\text{Area Queimada Anual no Poligono (ha)}}{\text{Area Cadastral Total do Poligono (ha)}}\right) \times 100$$
+### 1. Taxa Percentual Anual de Queima
 
-2. **Avaliacao do Efeito do Marco Legal:**
-   * $\text{Variacao Absoluta (p.p.)} = \overline{\text{Taxa}}_{\text{Pos-Criacao}} - \overline{\text{Taxa}}_{\text{Pre-Criacao}}$
-   * $\text{Variacao Relativa (\%)} = \left(\frac{\overline{\text{Taxa}}_{\text{Pos-Criacao}} - \overline{\text{Taxa}}_{\text{Pre-Criacao}}}{\overline{\text{Taxa}}_{\text{Pre-Criacao}}}\right) \times 100$
+Mede a proporcao da area da Unidade de Conservacao atingida pelo fogo em determinado ano:
+
+```math
+\text{Taxa Anual (\%)} = \left(\frac{\text{Área Queimada Anual no Polígono (ha)}}{\text{Área Cadastral Total do Polígono (ha)}}\right) \times 100
+```
+
+### 2. Avaliacao do Efeito do Marco Legal
+
+Compara o comportamento medio da taxa de queima territorial antes e apos o decreto oficial de criacao:
+
+* **Variacao Absoluta (em pontos percentuais):**
+
+```math
+\Delta_{\text{abs}} = \overline{\text{Taxa}}_{\text{Pós-Criação}} - \overline{\text{Taxa}}_{\text{Pré-Criação}}
+```
+
+* **Variacao Relativa (%):**
+
+```math
+\Delta_{\text{rel}} = \left(\frac{\overline{\text{Taxa}}_{\text{Pós-Criação}} - \overline{\text{Taxa}}_{\text{Pré-Criação}}}{\overline{\text{Taxa}}_{\text{Pré-Criação}}}\right) \times 100
+```
 
 ---
 
@@ -122,14 +139,14 @@ pip install -e .
 2. (Opcional) Configurar credenciais do Google Earth Engine para extracoes locais:
 Copiar `.env.example` para `.env` e indicar a chave de Service Account ou autenticar interativamente via terminal com `earthengine authenticate`.
 
-3. Executar o caderno analitico:
+3. Executar o notebook:
 ```bash
 jupyter lab notebooks/01_analise_historica_incendios.ipynb
 ```
 
 ---
 
-## Funcionalidades do Caderno Analitico
+## Funcionalidades do Notebook
 
 1. **Panorama Estadual e Serie Historica (1985 a 2026):** Evolucao anual de area absoluta queimada e taxa percentual ponderada para o conjunto das 29 UCs estaduais.
 2. **Comparativo Normalizado por Gerencia Regional:** Diagramas de dispersao e boxplots da taxa percentual anual entre as 9 gerencias.
@@ -137,4 +154,4 @@ jupyter lab notebooks/01_analise_historica_incendios.ipynb
 4. **Regime de Fogo por Categoria e Grupo SNUC:** Analise temporal comparativa entre Protecao Integral e Uso Sustentavel.
 5. **Avaliacao do Marco Legal de Criacao:** Inspecao dinamica por Unidade de Conservacao confrontando as taxas medias antes e depois da data oficial do decreto.
 6. **Prancha Cartografica Tematica Oficial por Ano:** Geracao estatica em alta definicao da classificacao espacial de queima das 29 UCs com seletor de ano e botao de execucao dedicado.
-7. **Mini Dashboard Analitico Interativo:** Painel web vetorial com alternancia entre Visao Regional e Analise por Unidade, zoom inteligente sincronizado e botao para abertura em tela cheia via nova aba.
+7. **Mini Dashboard Analitico Interativo:** Painel web vetorial com alternancia entre Visao Regional e Analise por Unidade, zoom inteligente sincronizado, camadas de cicatrizes reais (MapBiomas Fogo e MODIS MCD64A1) e botao para abertura em tela cheia via nova aba.
